@@ -982,19 +982,22 @@ class ServiceInfo(object):
             for key in properties:
                 value = properties[key]
                 if value is None:
-                    suffix = ''.encode('utf-8')
+                    suffix = ''
                 elif isinstance(value, str):
-                    suffix = value.encode('utf-8')
+                    suffix = value
                 elif isinstance(value, int):
                     if value:
                         suffix = 'true'
                     else:
                         suffix = 'false'
                 else:
-                    suffix = ''.encode('utf-8')
-                list.append('='.join((key, suffix)))
+                    suffix = ''
+                # Python 3: join strings, then encode the complete item
+                list.append(('='.join((key, suffix))).encode('utf-8'))
+            # Python 3: build result as bytes
+            result = b''
             for item in list:
-                result = ''.join((result, chr(len(item)), item))
+                result = b''.join((result, bytes([len(item)]), item))
             self.text = result
         else:
             self.text = properties

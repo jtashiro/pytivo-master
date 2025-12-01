@@ -126,8 +126,8 @@ class Beacon:
             logger = logging.getLogger('pyTivo.beacon')
             try:
                 self.bd = ZCBroadcast(logger)
-            except:
-                logger.error('Zeroconf failure')
+            except Exception as e:
+                logger.error('Zeroconf failure: %s' % str(e))
                 self.bd = None
         else:
             self.bd = None
