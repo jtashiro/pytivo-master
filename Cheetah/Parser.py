@@ -29,16 +29,21 @@ import traceback
 
 # Python 3 compatibility - pseudoprog was removed from tokenize
 # This is the token matching regex pattern from Python's tokenizer
+# Including string literals, numbers, identifiers, operators, and delimiters
 pseudoprog = re.compile(
-    r'[a-zA-Z_]\w*|'           # identifiers
-    r'0[xX][\da-fA-F]+|'       # hex numbers  
-    r'0[oO][0-7]+|'            # octal numbers
-    r'0[bB][01]+|'             # binary numbers
-    r'\d+[jJ]|'                # imaginary numbers
+    r"'''(?:[^'\\]|\\.|'(?!''))*'''|"  # triple-quoted strings
+    r'"""(?:[^"\\]|\\.|"(?!""))*"""|'
+    r"'(?:[^'\\\n]|\\.)*'|"            # single-quoted strings
+    r'"(?:[^"\\\n]|\\.)*"|'            # double-quoted strings
+    r'[a-zA-Z_]\w*|'                   # identifiers
+    r'0[xX][\da-fA-F]+|'               # hex numbers  
+    r'0[oO][0-7]+|'                    # octal numbers
+    r'0[bB][01]+|'                     # binary numbers
+    r'\d+[jJ]|'                        # imaginary numbers
     r'\d+\.\d*([eE][+-]?\d+)?[jJ]?|'  # float/complex
     r'\.\d+([eE][+-]?\d+)?[jJ]?|'     # float/complex
-    r'\d+[eE][+-]?\d+[jJ]?|'   # float/complex
-    r'\d+[jJ]?|'               # int/complex
+    r'\d+[eE][+-]?\d+[jJ]?|'           # float/complex
+    r'\d+[jJ]?|'                       # int/complex
     r'\*\*=?|\>\>=?|<<=?|<>|!=|'      # operators
     r'//=?|[+\-*/%&|^=<>]=?|'
     r'~|\[|\]|\(|\)|{|}|:|,|;|\.|`|@'  # delimiters
@@ -371,8 +376,14 @@ class ArgList:
         for i in range(len(defVals)):
             if type(defVals[i]) == StringType:
                 defVals[i] = defVals[i].strip()
-                
-        return map(None, [i.strip() for i in self.argNames], defVals)
+        
+        # Python 3: map(None, ...) doesn't work, use list(zip(...))
+        # Also handle unequal lengths by padding with None
+        argNames = [i.strip() for i in self.argNames]
+        maxLen = max(len(argNames), len(defVals))
+        argNames = argNames + [None] * (maxLen - len(argNames))
+        defVals = defVals + [None] * (maxLen - len(defVals))
+        return list(zip(argNames, defVals))
     
     def __str__(self):
         return str(self.merge())
@@ -447,7 +458,7 @@ class _LowLevelParser(SourceReader):
                       )
     
         cacheToken = (r'(?:' +
-                      r'(?P<REFRESH_CACHE>\*' + interval + '\*)'+
+                      r'(?P<REFRESH_CACHE>\*' + interval + r'\*)'+
                       '|' +
                       r'(?P<STATIC_CACHE>\*)' +
                       '|' +                      

@@ -63,7 +63,7 @@ except NameError:
     pass
 
 numberRE = re.compile(Number)
-complexNumberRE = re.compile('[\(]*' +Number + r'[ \t]*\+[ \t]*' + Number + '[\)]*')
+complexNumberRE = re.compile(r'[\(]*' +Number + r'[ \t]*\+[ \t]*' + Number + r'[\)]*')
 
 convertableToStrTypes = (StringType, IntType, FloatType,
                          LongType, ComplexType, NoneType,
@@ -128,7 +128,7 @@ ident = r'[_a-zA-Z][_a-zA-Z0-9]*'
 firstChunk = r'^(?P<indent>\s*)(?P<class>[_a-zA-Z][_a-zA-Z0-9]*)'
 customClassRe = re.compile(firstChunk + r'\s*:')
 baseClasses = r'(?P<bases>\(\s*([_a-zA-Z][_a-zA-Z0-9]*\s*(,\s*[_a-zA-Z][_a-zA-Z0-9]*\s*)*)\))'
-customClassWithBasesRe = re.compile(firstChunk + baseClasses + '\s*:')
+customClassWithBasesRe = re.compile(firstChunk + baseClasses + r'\s*:')
 
 def translateClassBasedConfigSyntax(src):
     

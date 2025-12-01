@@ -1787,7 +1787,7 @@ def genParserErrorFromPythonException(source, file, generatedPyCode, exception):
     if hasattr(exception, 'lineno'):
         pyLineno = exception.lineno
     else:
-        pyLineno = int(re.search('[ \t]*File.*line (\d+)', formatedExc).group(1))
+        pyLineno = int(re.search(r'[ \t]*File.*line (\d+)', formatedExc).group(1))
        
     lines = generatedPyCode.splitlines()
     
@@ -1826,7 +1826,7 @@ def genParserErrorFromPythonException(source, file, generatedPyCode, exception):
         report,
         '='*80,
         ]
-    cheetahPosMatch = re.search('line (\d+), col (\d+)', formatedExc)
+    cheetahPosMatch = re.search(r'line (\d+), col (\d+)', formatedExc)
     if cheetahPosMatch:
         lineno = int(cheetahPosMatch.group(1))
         col = int(cheetahPosMatch.group(2))
@@ -1836,7 +1836,7 @@ def genParserErrorFromPythonException(source, file, generatedPyCode, exception):
     else:
         lineno = None
         col = None
-        cheetahPosMatch = re.search('line (\d+), col (\d+)',
+        cheetahPosMatch = re.search(r'line (\d+), col (\d+)',
                                     '\n'.join(lines[max(pyLineno-2, 0):]))
         if cheetahPosMatch:
             lineno = int(cheetahPosMatch.group(1))

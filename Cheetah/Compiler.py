@@ -469,14 +469,14 @@ class MethodCompiler(GenUtils):
             self._pendingStrConstChunks = [strConst]
 
     def _unescapeCheetahVars(self, theString):
-        """Unescape any escaped Cheetah \$vars in the string.
+        r"""Unescape any escaped Cheetah \$vars in the string.
         """
         
         token = self.setting('cheetahVarStartToken')
         return theString.replace('\\' + token, token)
 
     def _unescapeDirectives(self, theString):
-        """Unescape any escaped Cheetah \$vars in the string.
+        r"""Unescape any escaped Cheetah \$vars in the string.
         """
         
         token = self.setting('directiveStartToken')

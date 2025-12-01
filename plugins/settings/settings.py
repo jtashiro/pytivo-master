@@ -27,7 +27,7 @@ Reset</b> or <b>Restart</b> before these changes will take effect.</p>"""
 
 # Preload the templates
 tsname = os.path.join(SCRIPTDIR, 'templates', 'settings.tmpl')
-SETTINGS_TEMPLATE = open(tsname, 'rb').read()
+SETTINGS_TEMPLATE = open(tsname, 'r', encoding='utf-8').read()
 
 class Settings(Plugin):
     CONTENT_TYPE = 'text/html'
