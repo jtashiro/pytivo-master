@@ -1,0 +1,57 @@
+html, body {
+    margin: 0;
+    padding: 0;
+    border: none;
+    height: 100%;
+    overflow: hidden;
+}
+
+table#main {
+    height: 85%;
+    text-align: left;
+    margin-left: auto;
+    margin-right: auto
+}
+
+div#settings, div#sidesections {
+    border-left: 1px dotted #999
+}
+
+td.panel {
+    vertical-align: top;
+    height: 100%
+}
+
+td.ulined {
+    border-bottom: 1px solid #999
+}
+
+div#leftframe {
+    width: 200px;
+    height: 100%;
+    overflow: hidden
+}
+
+div#settings, div#sidesections, div.sett-sect, div.help-sect {
+    width: 350px;
+    height: 100%;
+    overflow: auto
+}
+
+div#leftframe, div.sett-sect {
+    text-align: center
+}
+
+div.add-button, div.add-field, div.sett-sect, div.help-sect {
+    position: absolute;
+    left: 0px;
+    top: 0px
+}
+
+div.add-button {
+    width: 100%
+}
+
+div.add-field, div.sett-sect {
+    display: none
+}

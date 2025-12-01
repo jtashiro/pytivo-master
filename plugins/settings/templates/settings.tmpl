@@ -1,0 +1,280 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+"http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+<title>pyTivo - Settings</title>
+<link rel="stylesheet" href="/main.css" type="text/css">
+<link rel="stylesheet" href="/plugins/settings/settings.css" type="text/css">
+<script type="text/javascript" src="/plugins/settings/settings.js"></script>
+</head>
+<body>
+
+#def row($i, $key, $section, $source)
+    #set $j = $i%2
+    <tr class="row$(j)" onmouseover="switchDiv('help-$key', 'help-');
+     return true;">
+    <td style="text-align: left">$key:</td>
+    <td style="text-align: left">
+    #if $key in $source
+      #set $value=$source[$key]
+    #else
+      #set $value=''
+    #end if
+    #if $mode.get($key, '') == 'select'
+    <select name="opts.$section.$key" onChange="saveNotify();">
+      #for $p in $options[$key]
+        #if $p.lower() == $value.lower()
+          <option selected>$p</option>
+        #else
+          <option>$p</option>
+        #end if
+      #end for
+    </select>
+    #elif $mode.get($key, '') == 'checkbox'
+    <input id="opts.$section.$key" name="opts.$section.$key"
+     type="checkbox"
+      #if $value.lower() in ["1", "yes", "true", "on"]
+        checked
+      #end if
+     onChange="saveNotify();">
+    #else
+    <input size="20" id="opts.$section.$key" name="opts.$section.$key"
+     onChange="saveNotify();" value="$value" type="text">
+    #end if
+    </td>
+    </tr>
+#end def
+
+#def rows($section, $source_data, $source_known)
+    <hr style="width: 100%; height: 2px">
+    <table style="margin-left: auto; margin-right: auto">
+    #set $i = 0
+    #set $source_select = []
+    #set $source_text = []
+    #set $source_checkbox = []
+    #for $k in $source_known
+        #set $m = $mode.get($k, 'text')
+        #if $m == 'select'
+            #set $source_select += [$k]
+        #elif $m == 'checkbox'
+            #set $source_checkbox += [$k]
+        #else
+            #set $source_text += [$k]
+        #end if
+    #end for
+    #for $l in [$source_select, $source_text, $source_checkbox]
+        #for $key in $l
+            #set $i += 1
+            $row($i, $key, $section, $source_data)
+        #end for
+    #end for
+
+    <tr><td colspan="2" align="center" class="ulined">User Defined 
+     Settings:</td></tr>
+
+    #set $i = 0
+    #for $key in $source_data
+        #if not $key in $source_known
+            #set $i += 1
+            $row($i, $key, $section, $source_data)
+        #end if
+    #end for
+    </table>
+#end def
+
+#def add_setting($name, $section)
+    <div style="width: 330px; position: relative;">
+    <div class="add-button" id="add-$name-button">
+    <br>
+    <input type="button" value="Add Setting" 
+     onclick="switchDiv('add-$name-field', 'add-$name-');
+     return true;">
+    </div>
+    <div class="add-field" id="add-$name-field">
+    <table style="width: 315px;">
+    <tr>
+    <td colspan="2" align="center" class="ulined">Add a Setting</td>
+    </tr>
+    <tr><td>Setting Name:</td><td>Setting Value:</td></tr>
+    <tr>
+    #for $x in ('setting', 'value')
+        <td>
+        <input size="16" type="text" onChange="saveNotify();"
+         id="opts.$(section).new_$x" name="opts.$(section).new__$x" value="">
+        </td>
+    #end for
+    </tr>
+    </table>
+    </div>
+    </div>
+#end def
+
+<p id="titlep">
+<span id="title"><a href="/">pyTivo</a> / Settings</span>
+<a href="javascript:switchDiv('help-Instructions', 'help-');">help</a>
+</p>
+<table id="main">
+
+    <tr style="height: 100%">
+
+      <td class="panel">
+      <div id="leftframe" style="position: relative">
+      <form name="select_section" id="ss" action="NOTUSED"><p>Sections<br>
+        <select name="section" size="7" 
+         onchange="switchDiv(options[selectedIndex].value, 'set-');
+         return true;">
+        <option value="set-server">Global Server Settings</option>
+        <option value="set-fk_tivos">4K TiVo Settings</option>
+        <option value="set-hd_tivos">HD TiVo Settings</option>
+        <option value="set-sd_tivos">SD TiVo Settings</option>
+#for $name, $data in $shares_data
+	<option value="set-$name">$name</option>
+#end for
+#for $name, $data in $tivos_data
+	<option value="set-$name">$name</option>
+#end for
+        </select>
+
+        <input name="B4" value="Delete Section" type="button" 
+         onclick="deleteSection(select_section.section.selectedIndex)">
+        <input name="B5" value="Add Section" type="button" 
+         onclick="switchDiv('set-add', 'set-');return true;">
+      </p></form>
+
+      <hr>Administration
+      <form action="NOTUSED">
+        <p>
+        <input name="B1" id="B1" value="Save Changes" 
+         type="button" onclick="showData(document.config); return true;">
+        #if $has_shutdown
+        <input id="B2" name="B2" value="Restart pyTivo" type="button" 
+         onclick="redir('Restart');">
+        <input id="B3" name="B3" value="Shutdown pyTivo" type="button"
+         onclick="redir('Quit');">
+        #else
+        <input id="B2" name="B2" value="Soft Reset pyTivo" type="button" 
+         onclick="redir('Reset');">
+        #end if
+        </p>
+      </form>
+
+      </div>
+      </td>
+
+      <td class="panel">
+
+      <div id="settings" style="position: relative;">
+
+      <form name="config" method="POST" action="TiVoConnect" 
+       onsubmit="fillBlank(); showData(this);"><div style="height: 100%">
+
+      <input type="hidden" name="Command" value="UpdateSettings">
+      <input type="hidden" name="Container" value="$container">
+
+<div id="set-server" class="sett-sect">
+	<b>Global Server Settings</b><br>
+        $rows('Server', $server_data, $server_known)
+        $add_setting('server', 'Server')
+</div>
+
+<div id="set-fk_tivos" class="sett-sect">
+	<b>4K TiVo Settings</b><br>
+        $rows('_tivo_4K', $fk_tivos_data, $fk_tivos_known)
+        $add_setting('fk_tivos', '_tivo_4K')
+</div>
+
+<div id="set-hd_tivos" class="sett-sect">
+	<b>HD TiVo Settings</b><br>
+        $rows('_tivo_HD', $hd_tivos_data, $hd_tivos_known)
+        $add_setting('hd_tivos', '_tivo_HD')
+</div>
+
+<div id="set-sd_tivos" class="sett-sect">
+	<b>SD TiVo Settings</b><br>
+        $rows('_tivo_SD', $sd_tivos_data, $sd_tivos_known)
+        $add_setting('sd_tivos', '_tivo_SD')
+</div>
+
+#set $section_count = 0
+#set $section_map = ''
+#for $name, $data in $shares_data
+	#set $section_count += 1
+	#set $section_number = 'section-' + str($section_count)
+	<input type="hidden" name="opts.$name" id="opts.$name" 
+         value="$section_number">
+	#set $section_map += $section_number + '|' + $name + ']'
+	<div id="set-$name" class="sett-sect">
+	[<input size="20" onChange="saveNotify();" id="$section_number" 
+         name="$section_number" value="$name">]<br>
+        $rows($section_number, $data, $shares_known)
+        $add_setting($name, $section_number)
+	</div>
+#end for
+
+#for $name, $data in $tivos_data
+	#set $section_count += 1
+	#set $section_number = 'section-' + str($section_count)
+	<input type="hidden" name="opts.$name" id="opts.$name" 
+         value="$section_number">
+	#set $section_map += $section_number + '|' + $name + ']'
+	<div id="set-$name" class="sett-sect">
+	[<input size="20" onChange="saveNotify();" id="$section_number" 
+         name="$section_number" value="$name">]<br>
+        $rows($section_number, $data, $tivos_known)
+        $add_setting($name, $section_number)
+	</div>
+#end for
+<div id="set-add" class="sett-sect">
+	Add a New Section
+	<hr>
+	<table>
+	<tr>
+	<td> Section Name :</td><td> 
+	<input onChange="saveNotify();" type="text" size="20"
+         name="new_Section" value=""
+         onfocus="switchDiv('help-Add_a_New_Section', 'help-'); return true;">
+	</td></tr></table>
+	The new section name will be added to the pyTivo.conf file when 
+        you click <b>Save Changes</b>.
+</div>
+<div id="set-delete" class="sett-sect">
+	Delete a Section
+	<hr>
+	<br>
+	The Section has been marked for deletion. However it will not be 
+        actually deleted until you click the <b>Save Changes</b> button.
+</div>
+<input type="hidden" id="Section_Map" name="Section_Map" value="$section_map">
+      </div></form>
+
+      </div>
+
+      </td>
+
+      <td class="panel">
+      <div id="sidesections" style="position: relative;">
+      <!-- HELP SECTIONS -->
+      #for $setting in $help_list
+          #if $setting == 'Instructions'
+              #set $vis = 'block'
+          #else
+              #set $vis = 'none'
+          #end if
+          <div id="help-$setting" class="help-sect" style="display: $vis;">
+          <p style="text-align: center"><strong>$setting</strong></p>
+          #for $line in $help_list[$setting]
+              <p><strong>$(line.split(':', 1)[0]):</strong>
+               $(line.split(':', 1)[1])</p>
+          #end for
+          </div>
+      #end for
+      <!-- END HELP SECTIONS -->
+      </div>
+
+      </td>
+
+    </tr>
+
+</table>
+</body>
+</html>

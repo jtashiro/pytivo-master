@@ -1,0 +1,82 @@
+# This is an example config file, showing all the options. You probably 
+# won't need most of them. Your working config file will be named 
+# "pyTivo.conf". '#' starts a comment.  It is recommended that
+# that you use the Web Administration tool to modify pyTivo.conf after
+# you get pyTivo up and running.  You can access the tool by pointing your
+# browser to http://localhost:9032/
+
+# Read the pyTivo support wiki for additional help at 
+# http://pytivo.sourceforge.net
+
+[Server]
+port=9032
+
+# FFmpeg is a required tool but downloaded separately.  See pyTivo wiki 
+# for help.
+# Full path to ffmpeg including filename
+# For windows: ffmpeg=C:\pyTivo\bin\ffmpeg.exe
+# For linux:   ffmpeg=/usr/bin/ffmpeg
+#ffmpeg=C:\pyTivo\bin\ffmpeg.exe
+ffmpeg=/usr/bin/ffmpeg
+
+# Setting this to True will log more ouput for debugging purposes.
+#debug=False
+
+# Max video bitrate, default 30000k
+# sets ffmpeg -maxrate setting to minimize bitrate peak playback issues.
+# mpegs with video bitrate above this setting will also be transcoded.
+#MAX_VIDEO_BR=17408k
+
+# Audio bit-rate, defaults to 192K for S2, 384K for S3/HD
+#audio_br=320K
+
+# Video bit-rate, defaults to 4096K for S2, 8192K for S3/HD
+#video_br=12Mi
+
+# Beacon broadcast address(es)
+# The default is 255.255.255.255, but on some multihomed machines you 
+# may need to specify the subnet broadcast address(es) of your Tivo 
+# boxes. You can also specify "listen" to listen for direct connection 
+# attempts on port 2190, for use with the "Manually add a server..." 
+# function. (And if you set beacon to listen _only_, it turns off 
+# broadcasts.)
+#beacon=192.168.1.255 listen
+
+# Togo settings:
+# Set this up if you wish to have TiVo ToGo support.  This allows you to
+# copy videos from your TiVo via a web page. 
+#
+#tivo_mak=<Your Media Access Key>
+#togo_path=<path where movies will go or a section name>
+
+# Per tivo options
+# section named _tivo_TSN with the tsn in all caps
+#[_tivo_00000DEADBEEF]
+
+# If you want to use 16:9 or 4:3 on this tivo
+#aspect169=true
+
+#audio_br=320K
+#video_br=12Mi
+
+#[_tivo_HD]
+# section for default video options applicable to all HD TiVos
+# see pyTivo Settings for all available settings
+
+#[_tivo_SD]
+# section for default video options applicable to all SD TiVos
+# see pyTivo Settings for all available settings
+
+[MyMovies]
+# Type can be 'video', 'music', or 'photo'
+type=video
+
+# Path is the full path to your files (No trailing slash needed)
+# For windows: path=c:\videos
+# For linux:   path=/media
+path=/home/armooo/Videos
+
+# You can have more than one share
+#[MyTelevision]
+#type=video
+#path=d:\television

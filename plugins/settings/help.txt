@@ -1,0 +1,439 @@
+###################### pyTivo Web Admin Help #########################
+#
+# Description: This file contains the information displayed in the
+# settings help section of the web admin. Most users will never need
+# to edit or view this file.
+#
+# Format: Blank lines and lines beginning with '#' are ignored.
+# The name of a section should appear on its own line and should NOT
+# contain a colon.  Subsequent lines should contain the portion to be
+# bolded, followed by a colon, followed by the descriptive text.
+# Each line will be read into the previously named section until a
+# blank line or the EOF is reached. Lines containing colons that
+# don't mark a new subhead must be escaped by placing '>' in the
+# first position.
+#
+# In order for the web config plugin to know which settings are 
+# available in which sections, the following line should be present in 
+# each setting:
+#
+# Available In:
+#
+# This entry should be a comma seperated list of the sections which
+# this setting should be shown in. For example:
+#
+# Available In: Server, Tivos, FK_tivos, HD_tivos, SD_tivos, Shares
+#
+######################################################################
+
+Instructions
+
+To Edit a Share: Select the share in the left hand menu.
+To Delete a Share: Select the share in the left hand menu and click 
+delete.
+To Add a Share/Tivo/Section: Click the "Add Section" button.  Then 
+provide the name of the share or TiVo. You must save your changes before 
+you can edit settings in the new share.
+To Add a Setting: Select your share first.  If the setting is a known 
+setting simply add the value to the appropriate setting. If the setting 
+is not listed you can add a "User Defined Setting".  Simple click add 
+setting and provide the name and value of this new setting.
+To Delete a Setting: Delete the value of the setting so that it is 
+blank.  If this is a known share the name will remain after a save. If 
+the setting is a user defined setting the name will be deleted after the 
+save.
+Save Settings: Clicking Save Settings will write your changes to the 
+pyTivo.conf file. These settings may not have an effect on your pyTivo 
+server until it is Soft Reset or restarted.
+Soft Reset: Soft Reset allows most new settings to take effect without 
+restarting pyTivo.  The Soft Reset will cause a re-read of the
+pyTivo.conf file so your changes must be saved to the file before the
+reset.
+
+Add_a_New_Section
+
+Add the name of a new section: If you want to add a TiVo section, 
+remember it must start with "_tivo_". You must save your settings before 
+the new section will be editable.
+
+port
+
+Default Setting: 9032
+Valid Entries: 1-65535
+Required: No
+Description: The port which pyTivo uses to serve your files. Can be
+changed if it conflicts with another program.
+Example Settings: 9032
+Available In: Server
+
+ffmpeg
+
+Default Setting: None
+Valid Entries: Operating system path
+Required: No
+Description: This is the full path to your ffmpeg binary. If not set, 
+pyTivo checks for it in a "bin" subdirectory, and then in the PATH. If 
+no ffmpeg is found, pyTivo will operate in a limited mode, serving only 
+MPEG and TiVo files in video shares, and only MP3 files in music shares, 
+with no seek capability.
+Example Settings: Linux = /usr/bin/ffmpeg |
+>Windows = C:\pyTivo\bin\ffmpeg.exe
+Available In: Server
+
+tivodecode
+
+Default Setting: None
+Valid Entries: Operating system path
+Required: No
+Description: This is the full path to your tivodecode binary. If not 
+set, pyTivo checks for it in a "bin" subdirectory, and then in the PATH.
+tivodecode is only needed for certain functions (currently transcoding 
+HD .TiVo files to SD).
+Example Settings: Linux = /usr/bin/tivodecode |
+>Windows = C:\pyTivo\bin\tivodecode.exe
+Available In: Server
+
+tdcat
+
+Default Setting: None
+Valid Entries: Operating system path
+Required: No
+Description: This is the full path to your tdcat binary. If not set, 
+pyTivo checks for it in a "bin" subdirectory, and then in the PATH. 
+tdcat is only needed to view the data from a .TiVo file in the details 
+screen. It comes with tivodecode.
+Example Settings: Linux = /usr/bin/tdcat |
+>Windows = C:\pyTivo\bin\tdcat.exe
+Available In: Server
+
+beacon
+
+Default Setting: 255.255.255.255
+Valid Entries: Beacon IP address(es) or "listen".  Can contain multiple
+IPs separated by spaces.
+Required: No
+Description: The addresses on which the beacon should broadcast.  Most
+people can leave this at the default. If set to "listen", will accept
+incoming TCP beacons. If you're having issues with your shares not
+appearing on TiVo, try using the broadcast address of your LAN. For
+example, if your gateway (router) used address 192.168.1.1, your
+broadcast address would be 192.168.1.255.  Alternatively, you can
+specify the exact addresses of your TiVos, e.g. 192.168.1.150
+192.168.1.151.
+Example Settings: 192.168.1.255
+Available In: Server
+
+debug
+
+Mode: checkbox
+Default Setting: False
+Valid Entries: True/False
+Required: No
+Description: Will generate more output for debugging purposes.
+Example Settings: True/False
+Available In: Server
+
+type
+
+Mode: select
+Default Setting: None
+Valid Entries: video, music, photo, or any other valid plugin name.
+Required: Yes
+Description: Sets the type of share that this will be. This must be set
+to something otherwise pyTivo will not start. NOTE plugins names are
+generally lowercase.
+Example Settings: video, music, photo
+Available In: Shares
+
+path
+
+Default Setting: None
+Valid Entries: Any operating system path
+Required: Yes
+Description: Sets the base path to your media content. While pyTivo will
+start with an invalid path your shares will not work at all.
+Example Settings: Windows = C:\videos | Linux = /home/user/media
+Available In: Shares
+
+force_alpha
+
+Mode: checkbox
+Default Setting: False
+Valid Entries: True/False
+Required: No
+Description: Only meaningful in shares of type "video". When false, 
+pyTivo will display videos in the order requested by the TiVo, as 
+described at the bottom of the screen. When true, pyTivo will ignore the 
+sort options and revert to its "classic" behavior, using an alphabetical 
+sort always, with folders listed first. Note that the TiVo doesn't 
+request alpha sorts for folders below the top level, so if you want them 
+alpha-sorted, you need this option.
+Example Settings: True/False
+Available In: Shares
+
+force_ffmpeg
+
+Mode: checkbox
+Default Setting: False
+Valid Entries: True/False
+Required: No
+Description: Only meaningful in shares of type "music". When false, 
+pyTivo will pass through TiVo-compatible MP3 files as-is (unless you 
+seek within them). When true, even these files will be processed by 
+FFmpeg, in order to strip out album artwork that the TiVo would 
+otherwise try to play as sound, producing a squeal. This is done with 
+the "copy" codec, so it's low-overhead.
+Example Settings: True/False
+Available In: Shares
+
+allow_recurse
+
+Mode: select
+Options: Auto/On/Off
+Default Setting: Auto
+Valid Entries: On/Off/Auto
+Required: No
+Description: Only meaningful in shares of type "video". The TiVo uses 
+the "Recurse" option in a query to provide a flattened, ungrouped 
+listing. Recent versions of the TiVo software sometimes forget the 
+grouping flag, and unexpectedly request an ungrouped list. So, the 
+default now is to ignore the "Recurse" flag on those platforms. This 
+option lets you enable it anyway ("Yes"), or force it to be ignored even 
+on TiVos that aren't recognized as having the bug ("No").
+Example Settings: On/Off/Auto
+Available In: Shares
+
+optres
+
+Mode: checkbox
+Default Setting: False
+Valid Entries: True/False
+Required: No
+Description: Allows for the use of the Optimal Resolution in
+transcoding. By setting optres = true pyTivo will treat the height and
+width settings in the conf file as a maximum. If the video to be
+transcoded has smaller dimensions that are closer to other acceptable
+TiVo dimensions then pyTivo will use these dimensions. This allows for
+faster transcoding and small files when the initial video is a lower
+quality. pyTivo uses the same resolution as the source file on HD Tivos
+for optimal transcoding efficiency. It is not necessary to to set this
+option with HD TiVos unless you wish to force pyTivo to change the
+resolution to an "S2 compatible" resolution.
+Example Settings: True/False
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+video_br
+
+Default Setting: 4096K for SD TiVo's, 16384K for HD TiVo's
+Valid Entries: Any valid Bit rate. 1024K = 1Mi
+Required: No
+Description: This allows you to choose the default server video bit rate
+used in transcoding. FFmpeg does not strictly follow this bit rate,
+there is a certain level of tolerance that is allowed. Also a low
+quality file will always have a low bit rate. The default is likely fine
+for most users. Higher values may slow down transcoding and will
+increase the file size. Increased file sizes take up more room on the
+TiVo and take longer to transfer over the network. (Higher settings are
+>recommended for screen sizes above 47" such as: video_br=20Mi, width=1920,
+height=1080)
+Example Settings: 4096K, 8Mi, 12Mi, 16Mi, 20Mi
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+max_video_br
+
+Default Setting: 30000k
+Valid Entries: Any valid Bit rate. 1024K = 1Mi
+Required: No
+Description: This allows you to choose the maximum bit rate and is more
+strict than the video_br setting above. However setting this can cause
+buffer overflows and can cause issues with ffmpeg. In addition to
+setting the ffmpeg maxrate option, this setting is used to determine if
+the video bitrate of the source video file is too high for the TiVo.
+Otherwise compatible mpeg's with a video bitrate above this setting will
+be transcoded rather than sent to the TiVo untouched.  Lower this
+setting below the bitrate of your source file if you wish to force high
+bitrate sources to be transcoded.  Recommended only for skilled users.
+Note: there is a report that ffmpeg throws an error with 17Mi but
+accepts 17408K just fine.
+Example Settings: 17408k, 30000k
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+bufsize
+
+Default Setting: 1024k for S2, 4096k for S3
+Valid Entries: Any valid byte size
+Required: No
+Description: Allows you to set the buffer size used by ffmpeg.
+Increasing this setting will allow higher bitrates during transcoding
+(see video_br setting), especially when transcoding to HD resolutions.
+But it may result in pixelation or audio sync issues with some sources.
+1024k is fine for the resolutions used by S2 tivos.  But 2048k or 4096k
+is preferred for HD tivos.  Leave this setting blank unless you are
+experiencing audio/video sync issues and wish to test a different value.
+Example Settings: 1024k, 2048k, 4096k
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+audio_br
+
+Default Setting: same bitrate as source or 448k
+Valid Entries: Any valid bitrate up to 448k
+Required: No
+Description: This allows you to choose the default audio bit rate used
+for transcoding. The default is likely fine for most users. 384k is the
+minimum recommended for ac3 audio.
+Example Settings: 192K, 384K, 448K.
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+max_audio_br
+
+Default Setting: 448k
+Valid Entries: Any valid bitrate
+Required: No
+Description: This sets the maximum audio bit rate that can be sent to
+the TiVo. Files having a higher bit rate will be transcoded to ensure
+TiVo compatibility.
+Example Settings: 384K, 448K
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+audio_lang
+
+Recommended Setting: 5.1, DTS, en  (entire string including commas)
+pyTivo Defaults To: first audio stream
+Valid Entries: any language tag or audio stream number reported by ffmpeg
+Required: No
+Description: Sets the preferred language track used by pyTivo.
+ffmpeg/pytivo defaults to the first audio stream.  Specifying this
+parameter, tells pyTivo to use the first audio stream that matches this
+entry if more than one audio stream exists.  If your video source does
+not have language tags, you may specify the audio stream number reported
+by ffmpeg (ie. 0.1, 0.2 ect.). Stream references like 0x80, 0x81, etc.
+may also be specified.  pyTivo will transcode the file if necessary to
+obtain the preferred language track.<br><br>
+You can also assign new language tags to your files by adding Override
+lines to your metadata txt files.  This will enable pytivo to detect
+your audio language setting in files that do not contain language tags.
+The syntax is<br>
+Override_mapAudio: 0.1 eng<br>
+Where 0.1 is the audio stream number reported by ffmpeg and eng is the 
+new audio tag to assign to that stream.  You can specify multiple 
+streams with one Override line --<br>
+Override_mapAudio: 0:1 eng 0:2 "long tag" 0:3 foo<br>
+Example Settings: eng, ger, spa, en, ge, 0.0, 0.1, 0.2, 0x80, 0x81 etc...
+Available In: Tivos, FK_tivos, HD_tivos, SD_tivos
+
+ffmpeg_pram
+
+Default Setting: None
+Valid Entries: A valid ffmpeg command
+Required: No
+Description: This allows you to append additional raw ffmpeg commands to
+the ffmpeg template. For example, you would enter '-threads 2' here if
+you have multiple processors and want ffmpeg to use both processors to
+speed up transcoding.
+Example Settings: -threads 2
+Available In: Server, Tivos, FK_tivos, HD_tivos, SD_tivos
+
+aspect169
+
+Default Setting: True
+Valid Entries: True/False
+Required: No
+Description: Most TiVos, even S2, can handle 16:9 videos perfectly. Some
+>S2s are known not to handle 16:9 and will default to false in this
+setting. If you are experiencing major distortion you can try setting
+this to false. Likely most users will not have to mess with this.
+Example Settings: True/False
+Available In: Tivos
+
+shares
+
+Default Setting: None (allow all shares on this TiVo).
+Valid Entries: The names of any shares in your pyTivo.conf file, in a
+comma-separated list.
+Required: No
+Description: Only the shares listed in this setting will be visible on 
+this TiVo. Will ignore invalid shares. If no valid shares are listed, no 
+shares will be visible on this TiVo. If the "shares" line is not 
+present, all shares are visible.
+Example Settings: Movies, Kids Stuff
+Available In: Tivos
+
+ffmpeg_wait
+
+Default Setting: 0 (no limit)
+Valid Entries: any integer
+Required: No
+Description: Limits the amount of time FFmpeg can run (when used to 
+check file info, not for transcoding), in seconds.
+Example Settings: 10, 15, 20.
+Available In: Server
+
+tivo_mak
+
+Default Setting: None
+Valid Entries: Your Media Access Key
+Required: No
+Description: Your Media Access Key -- find it on your TiVo under 
+Messages and Settings, Account and System information, Media Access Key. 
+This is required for the "ToGo" feature, and for anything that uses 
+tivodecode (transcoding HD .TiVo files to SD TiVos). If you don't plan 
+to use these features, you don't need to set this.
+Example Settings: 012345678
+Available In: Server, Tivos
+
+togo_path
+
+Default Setting: None
+Valid Entries: System path or share name
+Required: No
+Description: The path used to save programs downloaded via the ToGo 
+menu. It can be either a direct path, or the name of a share, in which 
+case pyTivo will use the path specified for the share. If you don't plan 
+to use the ToGo feature, you need not set this.
+Example Settings: My Videos, /home/user/Videos
+Available In: Server
+
+zeroconf
+
+Mode: select
+Options: Auto/On/Off
+Default Setting: Auto
+Valid Entries: On/Off/Auto
+Required: No
+Description: Controls whether or not new-style, zeroconf-based beacons 
+are used. The default is to use them, unless there's a "_tivo_" section 
+with "shares" defined. The zeroconf beacons bypass the usual mechanism 
+whereby only the allowed shares are announced to specific TiVos; the 
+contents of the shares will still not appear on unauthorized TiVos, but 
+the names will.
+Example Settings: On/Off/Auto
+Available In: Server
+
+ts
+
+Mode: select
+Options: Auto/On/Off
+Default Setting: Auto
+Valid Entries: On/Off/Auto
+Required: No
+Description: Should pyTivo use transport stream mode with supported 
+TiVos? On = Send only transport streams; Off = Send only program 
+streams; Auto = Send as-is if compatible, or as transport stream if the 
+source is likely (based on the extension) to be h.264, or program stream 
+otherwise. .TiVo files are sent as-is regardless of this setting (unless 
+the destination TiVo can't handle transport streams.)
+Example Settings: On/Off/Auto
+Available In: Server
+
+nosettings
+
+Mode: checkbox
+Default Setting: False
+Valid Entries: True/False
+Required: No
+Description: Disable the "Settings" item in the infopage (i.e. the very 
+thing you're using now). Note that you can't turn this off the way you 
+turned it on, since the settings page will not be available! You'll have 
+to remove it from pyTivo.conf with a text editor.
+Example Settings: True/False
+Available In: Server
