@@ -401,9 +401,10 @@ class PyTivoAutomation:
         print(f"{'=' * 60}\n")
         sys.stdout.flush()  # Ensure output is visible before monitoring starts
         
-        return transferred
+        # Return both count and the initial log position for monitoring
+        return (transferred, log_pos)
     
-    def monitor_all_transfers(self, expected_count: int, timeout_minutes: int = 120):
+    def monitor_all_transfers(self, expected_count: int, start_log_pos: int = None, timeout_minutes: int = 120):
         """
         Monitor log for all transfers to complete.
         Tracks 'Start sending' and 'Done sending' messages.
@@ -427,11 +428,16 @@ class PyTivoAutomation:
             return []
         
         print(f"Monitoring transfers (expecting {expected_count} files)...")
+        print(f"Watching pyTivo log: {log_path}\n")
+        sys.stdout.flush()
         
-        # Get current log position
-        with open(log_path, 'r') as f:
-            f.seek(0, 2)
-            start_pos = f.tell()
+        # Use provided log position or get current position
+        if start_log_pos is not None:
+            start_pos = start_log_pos
+        else:
+            with open(log_path, 'r') as f:
+                f.seek(0, 2)
+                start_pos = f.tell()
         
         start_time = time.time()
         started_files = []
@@ -445,6 +451,8 @@ class PyTivoAutomation:
                     start_pos = f.tell()
                 
                 for line in new_lines:
+                    line = line.strip()
+                    
                     # Track Start sending
                     if 'Start sending' in line:
                         match = re.search(r'Start sending "([^"]+)"', line)
@@ -454,6 +462,7 @@ class PyTivoAutomation:
                                 started_files.append(filename)
                                 # Show correct count for started files
                                 print(f"  [{len(started_files)}/{expected_count}] Started: {filename}")
+                                sys.stdout.flush()
                     
                     # Track Done sending (check separately, not elif)
                     if 'Done sending' in line:
@@ -464,6 +473,7 @@ class PyTivoAutomation:
                                 completed_files.append(filename)
                                 elapsed = int(time.time() - start_time)
                                 print(f"  [{len(completed_files)}/{expected_count}] ✓ Completed: {filename} (elapsed: {elapsed}s)")
+                                sys.stdout.flush()
                 
                 # Check if all expected transfers are complete
                 if len(completed_files) >= expected_count:
@@ -517,7 +527,15 @@ class PyTivoAutomation:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
                 # Transfer all items in current list, using file_count if available
-                transferred_count = self.transfer_all_items(expected_count=file_count)
+                result = self.transfer_all_items(expected_count=file_count)
+                
+                # Unpack result (count, log_position)
+                if isinstance(result, tuple):
+                    transferred_count, log_start_pos = result
+                else:
+                    # Backward compatibility
+                    transferred_count = result
+                    log_start_pos = None
                 
                 # Check if next command is DELETE_SOURCE_FILE
                 if idx + 1 < len(sequence) and sequence[idx + 1][0] == 'DELETE_SOURCE_FILE':
@@ -525,7 +543,7 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    completed_files = self.monitor_all_transfers(transferred_count)
+                    completed_files = self.monitor_all_transfers(transferred_count, start_log_pos=log_start_pos)
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:

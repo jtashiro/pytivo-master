@@ -1,0 +1,12 @@
+# PyTivo TiVo Automation Requirements
+#
+# All dependencies are part of Python standard library (3.8+)
+# No external packages required for:
+#   - pytivo_transfer.py
+#   - tivo_remote.py
+#   - pytivo_watcher_service.py
+#   - check_tivo_rpc.py
+#
+# Minimum Python version: 3.8
+
+# No external dependencies required
