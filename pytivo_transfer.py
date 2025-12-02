@@ -848,14 +848,15 @@ Examples:
   # Interactive mode (manual control)
   python pytivo_transfer.py 192.168.1.185
   
+  # Execute a sequence from config
+  python pytivo_transfer.py 192.168.1.185 watcher
+  python pytivo_transfer.py 192.168.1.185 import-wait-remove
+  
   # Automated transfer (first video in share)
   python pytivo_transfer.py 192.168.1.185 --auto --position 0
   
   # Transfer video at position 3
   python pytivo_transfer.py 192.168.1.185 --auto --position 3
-  
-  # Navigate through folders: share -> Action -> 2000s -> select first video
-  python pytivo_transfer.py 192.168.1.185 "Movies" --auto --folders Action 2000s --position 0
 
 Note: Automated mode is fragile and may need customization for your menu layout.
       Interactive mode is recommended for initial testing.
@@ -863,6 +864,7 @@ Note: Automated mode is fragile and may need customization for your menu layout.
     )
     
     parser.add_argument("tivo_ip", help="TiVo IP address")
+    parser.add_argument("sequence", nargs="?", help="Optional: sequence name to execute from config")
     parser.add_argument("--auto", action="store_true", 
                        help="Attempt automated transfer (vs interactive mode)")
     parser.add_argument("--position", type=int, default=0,
@@ -887,7 +889,13 @@ Note: Automated mode is fragile and may need customization for your menu layout.
     print("✓ Connected to TiVo")
     
     try:
-        if args.auto:
+        if args.sequence:
+            # Execute specified sequence and exit
+            if not automation.execute_sequence(args.sequence):
+                print(f"\n✗ Failed to execute sequence: {args.sequence}")
+                return 1
+            print(f"\n✓ Sequence '{args.sequence}' completed")
+        elif args.auto:
             automation.automated_transfer(args.position, args.folders)
         else:
             automation.interactive_mode()
