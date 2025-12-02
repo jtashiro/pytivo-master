@@ -406,7 +406,56 @@ def init_logging():
 
         logging.config.fileConfig(config_files)
 
-    elif getDebug():
-        logging.basicConfig(level=logging.DEBUG)
     else:
-        logging.basicConfig(level=logging.INFO)
+        # Set up logging level
+        level = logging.DEBUG if getDebug() else logging.INFO
+        
+        # Configure formatter
+        formatter = logging.Formatter(
+            '%(asctime)s %(levelname)s:%(name)s:%(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        
+        # Get log file path from config, if specified
+        log_file = None
+        try:
+            log_file = config.get('Server', 'log_file')
+        except:
+            pass
+        
+        # Set up handlers
+        handlers = []
+        
+        # Console handler (for systemd journal)
+        console_handler = logging.StreamHandler()
+        console_handler.setFormatter(formatter)
+        handlers.append(console_handler)
+        
+        # File handler (if log_file is configured)
+        if log_file:
+            try:
+                # Create log directory if it doesn't exist
+                log_dir = os.path.dirname(log_file)
+                if log_dir and not os.path.exists(log_dir):
+                    os.makedirs(log_dir, exist_ok=True)
+                
+                # RotatingFileHandler keeps log files manageable
+                from logging.handlers import RotatingFileHandler
+                file_handler = RotatingFileHandler(
+                    log_file,
+                    maxBytes=10*1024*1024,  # 10 MB
+                    backupCount=5
+                )
+                file_handler.setFormatter(formatter)
+                handlers.append(file_handler)
+            except Exception as e:
+                # If file logging fails, just log to console
+                print(f"Warning: Could not set up file logging to {log_file}: {e}", file=sys.stderr)
+        
+        # Configure root logger
+        logging.basicConfig(
+            level=level,
+            handlers=handlers,
+            format='%(asctime)s %(levelname)s:%(name)s:%(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )

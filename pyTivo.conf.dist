@@ -22,6 +22,16 @@ ffmpeg=/usr/bin/ffmpeg
 # Setting this to True will log more ouput for debugging purposes.
 #debug=False
 
+# Optional: Write logs to a file in addition to console/journal
+# If not set, logs only go to console (captured by systemd journal)
+# The directory will be created if it doesn't exist
+# Example: log_file=/var/log/pytivo/pytivo.log
+#log_file=/home/jtashiro/logs/pyTivo.log
+
+# Optional: Append hostname to share names for multi-server setups
+# Example: "Movies" becomes "Movies (hostname)"
+#append_hostname=False
+
 # Max video bitrate, default 30000k
 # sets ffmpeg -maxrate setting to minimize bitrate peak playback issues.
 # mpegs with video bitrate above this setting will also be transcoded.
