@@ -110,7 +110,11 @@ class ZCBroadcast:
                         prop_key = key.decode('utf-8') if isinstance(key, bytes) else key
                         prop_value = value.decode('utf-8') if isinstance(value, bytes) else value
                         config.tivos[tsn][prop_key] = prop_value
-                    self.logger.info(name)
+                    self.logger.info('%s - TSN: %s, Address: %s:%d' % (name, tsn, address, port))
+                    # Log additional TiVo properties
+                    platform = config.tivos[tsn].get('platform', 'unknown')
+                    sw_version = config.tivos[tsn].get('swversion', 'unknown')
+                    self.logger.debug('  Platform: %s, Software: %s' % (platform, sw_version))
                 else:
                     self.logger.debug('No TSN found for: %s' % name)
             else:

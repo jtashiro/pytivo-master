@@ -133,10 +133,10 @@ class LRUCache(object):
         return len(self.__heap)
 
     def __contains__(self, key):
-        return self.__dict.has_key(key)
+        return key in self.__dict
 
     def __setitem__(self, key, obj):
-        if self.__dict.has_key(key):
+        if key in self.__dict:
             node = self.__dict[key]
             node.obj = obj
             node.atime = time.time()
@@ -153,7 +153,7 @@ class LRUCache(object):
             heappush(self.__heap, node)
 
     def __getitem__(self, key):
-        if not self.__dict.has_key(key):
+        if key not in self.__dict:
             raise CacheKeyError(key)
         else:
             node = self.__dict[key]
@@ -162,7 +162,7 @@ class LRUCache(object):
             return node.obj
 
     def __delitem__(self, key):
-        if not self.__dict.has_key(key):
+        if key not in self.__dict:
             raise CacheKeyError(key)
         else:
             node = self.__dict[key]
@@ -176,7 +176,8 @@ class LRUCache(object):
         while len(copy) > 0:
             node = heappop(copy)
             yield node.key
-        raise StopIteration
+        # Python 3: use return instead of raise StopIteration in generators
+        return
 
     def __setattr__(self, name, value):
         object.__setattr__(self, name, value)
@@ -194,7 +195,7 @@ class LRUCache(object):
         """Return the last modification time for the cache record with key.
         May be useful for cache instances where the stored values can get
         'stale', such as caching file or network resource contents."""
-        if not self.__dict.has_key(key):
+        if key not in self.__dict:
             raise CacheKeyError(key)
         else:
             node = self.__dict[key]
