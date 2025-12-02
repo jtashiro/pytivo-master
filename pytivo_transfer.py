@@ -359,6 +359,8 @@ class PyTivoAutomation:
                     if match:
                         full_path = match.group(1)
                         started_filename = os.path.basename(full_path)
+                        print(f"  → Transfer started: {started_filename}")
+                        sys.stdout.flush()
                         # Update status in transfer_list
                         for item in self.transfer_list:
                             if started_filename in item['filename'] and item['status'] == 'queued':
