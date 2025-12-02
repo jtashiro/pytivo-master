@@ -347,6 +347,26 @@ class PyTivoAutomation:
             # Move DOWN to next item
             self.remote.press(TiVoButton.DOWN, delay=2.5)
         
+        # Check log for any transfers that started during queueing
+        try:
+            with open(log_path, 'r') as f:
+                f.seek(initial_log_pos)
+                all_lines = f.readlines()
+            
+            for line in all_lines:
+                if 'Start sending' in line:
+                    match = re.search(r'Start sending "([^"]+)"', line)
+                    if match:
+                        full_path = match.group(1)
+                        started_filename = os.path.basename(full_path)
+                        # Update status in transfer_list
+                        for item in self.transfer_list:
+                            if started_filename in item['filename'] and item['status'] == 'queued':
+                                item['status'] = 'in-progress'
+                                break
+        except:
+            pass
+        
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
         print(f"{'=' * 60}")
@@ -896,6 +916,7 @@ class PyTivoAutomation:
     def remove_file(self, filename):
         """
         Delete the transferred file from the filesystem.
+        Searches through all share sections in pyTivo config to find the file.
         
         Args:
             filename: Full path or basename of the file to remove
@@ -912,7 +933,7 @@ class PyTivoAutomation:
                 print(f"  ✗ Error deleting file: {e}")
                 return False
         
-        # Otherwise, need config to find the file
+        # Otherwise, search all share sections for the file
         config_path = self.get_pytivo_config_path()
         if not config_path:
             print(f"Cannot find file - config not found")
@@ -922,44 +943,43 @@ class PyTivoAutomation:
             with open(config_path, 'r') as f:
                 lines = f.readlines()
             
-            # Find [tivo-importer] section and locate matching file path
-            in_importer_section = False
-            file_to_delete = None
+            # Find all share sections and their paths
+            current_section = None
             basename = os.path.basename(filename)
             
             for line in lines:
                 stripped = line.strip()
                 
-                # Track which section we're in
-                if stripped.startswith('['):
-                    in_importer_section = (stripped.lower() == '[tivo-importer]')
+                # Track section headers
+                if stripped.startswith('[') and stripped.endswith(']'):
+                    current_section = stripped[1:-1]
                     continue
                 
-                # If we're in tivo-importer and line contains path setting
-                if in_importer_section and stripped.startswith('path'):
-                    # Parse: path = /some/path
-                    match = re.search(r'path\s*=\s*(.+)', stripped)
+                # Skip non-share sections
+                if not current_section or current_section in ['_tivo_SD', '_tivo_HD', 'Server']:
+                    continue
+                
+                # Look for path= in share sections
+                if stripped.lower().startswith('path'):
+                    match = re.search(r'path\s*=\s*(.+)', stripped, re.IGNORECASE)
                     if match:
-                        file_path = match.group(1).strip()
-                        # Check if this path ends with our filename
-                        if os.path.basename(file_path) == basename:
-                            file_to_delete = file_path
-                            break
+                        share_path = match.group(1).strip()
+                        # Try to find file in this share
+                        potential_file = os.path.join(share_path, basename)
+                        if os.path.exists(potential_file):
+                            try:
+                                os.remove(potential_file)
+                                print(f"  ✓ Deleted from [{current_section}]: {potential_file}")
+                                return True
+                            except Exception as e:
+                                print(f"  ✗ Error deleting file: {e}")
+                                return False
             
-            if file_to_delete:
-                if os.path.exists(file_to_delete):
-                    os.remove(file_to_delete)
-                    print(f"✓ Successfully deleted: {file_to_delete}")
-                    return True
-                else:
-                    print(f"File not found on filesystem: {file_to_delete}")
-                    return False
-            else:
-                print(f"File '{basename}' not found in [tivo-importer] section")
-                return False
+            print(f"  ✗ File '{basename}' not found in any share directories")
+            return False
                 
         except Exception as e:
-            print(f"Error deleting file: {e}")
+            print(f"  ✗ Error deleting file: {e}")
             return False
     
     def interactive_mode(self):
