@@ -252,13 +252,13 @@ class PyTivoAutomation:
             
             # Press SELECT to enter item details
             print(f"    SELECT (first press - enter details)")
-            self.remote.press(TiVoButton.SELECT, delay=1.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             # Move DOWN to transfer option
             print(f"    DOWN (to transfer option)")
-            self.remote.press(TiVoButton.DOWN, delay=1.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
             # Press SELECT to start transfer
             print(f"    SELECT (second press - start transfer)")
-            self.remote.press(TiVoButton.SELECT, delay=1.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             
             # Wait for "Start sending" in log
             print(f"    Waiting for transfer to start...")
@@ -288,7 +288,7 @@ class PyTivoAutomation:
                     if found_start:
                         break
                     
-                    time.sleep(1.5)
+                    time.sleep(2.5)
                 except Exception as e:
                     print(f"    Error reading log: {e}")
                     break
@@ -300,11 +300,11 @@ class PyTivoAutomation:
             
             # Go back to list with LEFT
             print(f"    LEFT (back to list)")
-            self.remote.press(TiVoButton.LEFT, delay=1.5)
+            self.remote.press(TiVoButton.LEFT, delay=2.5)
             
             # Move DOWN to next item
             print(f"    DOWN (next item)")
-            self.remote.press(TiVoButton.DOWN, delay=1.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
