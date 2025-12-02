@@ -19,6 +19,8 @@
 # Special commands:
 #   WAIT_FOR "text" - Wait for text to appear in log file before continuing
 #                     Example: WAIT_FOR "Start sending"
+#   DELETE_SOURCE_FILE - Delete the transferred file from filesystem
+#                        (extracts filename from last "Done sending" log message)
 #
 # Delay is in seconds (can be decimal like 0.5)
 # Lines starting with # are comments
@@ -52,7 +54,7 @@ LEFT 0.5
 SELECT 0.5
 
 [import-wait-remove]
-# Navigate to Import, wait for transfer to complete, then go back
+# Navigate to Import, wait for transfer to complete, then remove file and go back
 TIVO 0.5
 SELECT 0.5
 LEFT 0.5
@@ -64,4 +66,6 @@ SELECT 0.5
 SELECT 0.5
 WAIT_FOR "Start sending"
 WAIT_FOR "Done sending"
+DELETE_SOURCE_FILE
+LEFT 0.5
 TIVO 0.5
