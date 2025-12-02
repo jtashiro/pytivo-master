@@ -217,26 +217,26 @@ class Plugin(object):
             else:
                 dc[path] = filelist
 
-        def dir_sort(x, y):
-            if x.isdir == y.isdir:
-                return name_sort(x, y)
-            else:
-                return y.isdir - x.isdir
+        # Python 3: sort() uses key functions instead of comparison functions
+        def dir_sort_key(x):
+            # Directories first (isdir=True sorts before isdir=False), then by name
+            return (not x.isdir, x.name)
 
-        def name_sort(x, y):
-            return (x.name > y.name) - (x.name < y.name)
+        def name_sort_key(x):
+            return x.name
 
-        def date_sort(x, y):
-            return (y.mdate > x.mdate) - (y.mdate < x.mdate)
+        def date_sort_key(x):
+            # Negative for reverse sort (newest first)
+            return -x.mdate
 
         sortby = query.get('SortOrder', ['Normal'])[0]
         if filelist.unsorted or filelist.sortby != sortby:
             if force_alpha:
-                filelist.files.sort(dir_sort)
+                filelist.files.sort(key=dir_sort_key)
             elif sortby == '!CaptureDate':
-                filelist.files.sort(date_sort)
+                filelist.files.sort(key=date_sort_key)
             else:
-                filelist.files.sort(name_sort)
+                filelist.files.sort(key=name_sort_key)
 
             filelist.sortby = sortby
             filelist.unsorted = False
