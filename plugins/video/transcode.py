@@ -139,9 +139,10 @@ def resume_transfer(inFile, outFile, offset):
             if offset < length:
                 if offset > 0:
                     block = block[offset:]
-                outFile.write('%x\r\n' % len(block))
+                # Python 3: Write bytes for chunked transfer encoding
+                outFile.write(('%x\r\n' % len(block)).encode('utf-8'))
                 outFile.write(block)
-                outFile.write('\r\n')
+                outFile.write(b'\r\n')
                 count += len(block)
             offset -= length
         outFile.flush()
@@ -185,9 +186,10 @@ def transfer_blocks(inFile, outFile):
             blocks.pop(0)
 
         try:
-            outFile.write('%x\r\n' % len(block))
+            # Python 3: Write bytes for chunked transfer encoding
+            outFile.write(('%x\r\n' % len(block)).encode('utf-8'))
             outFile.write(block)
-            outFile.write('\r\n')
+            outFile.write(b'\r\n')
             count += len(block)
         except Exception as msg:
             logger.info(msg)
@@ -690,7 +692,7 @@ def video_info(inFile, cache=True):
     # wait configured # of seconds: if ffmpeg is not back give up
     limit = config.getFFmpegWait()
     if limit:
-        for i in xrange(limit * 20):
+        for i in range(limit * 20):
             time.sleep(.05)
             if not ffmpeg.poll() == None:
                 break
@@ -707,6 +709,9 @@ def video_info(inFile, cache=True):
     err_tmp.seek(0)
     output = err_tmp.read()
     err_tmp.close()
+    # Python 3: Decode bytes to string for regex matching
+    if isinstance(output, bytes):
+        output = output.decode('utf-8', errors='replace')
     debug('ffmpeg output=%s' % output)
 
     attrs = {'container': r'Input #0, ([^,]+),',

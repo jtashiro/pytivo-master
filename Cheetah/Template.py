@@ -1780,7 +1780,8 @@ def genParserErrorFromPythonException(source, file, generatedPyCode, exception):
     
     filename = isinstance(file, str) and file or None
 
-    sio = StringIO.StringIO()
+    from io import StringIO as IOStringIO
+    sio = IOStringIO()
     traceback.print_exc(1, sio)
     formatedExc = sio.getvalue()
     

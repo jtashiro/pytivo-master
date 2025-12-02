@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 
+# Python 3: Disable bytecode generation to avoid caching issues
+import sys
+sys.dont_write_bytecode = True
+
 import logging
 import os
 import platform
-import sys
 import time
 
 try:

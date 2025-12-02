@@ -65,7 +65,10 @@ class Video(Plugin):
     tvbus_cache = LRUCache(1)
 
     def video_file_filter(self, full_path, type=None):
-        if os.path.isdir(unicode(full_path, 'utf-8')):
+        # Python 3: Ensure full_path is a string
+        if isinstance(full_path, bytes):
+            full_path = full_path.decode('utf-8')
+        if os.path.isdir(full_path):
             return True
         if use_extensions:
             return os.path.splitext(full_path)[1].lower() in EXTENSIONS
@@ -108,7 +111,7 @@ class Video(Plugin):
         #faking = (mime in ['video/x-tivo-mpeg-ts', 'video/x-tivo-mpeg'] and
         faking = (mime == 'video/x-tivo-mpeg' and
                   not (is_tivo_file and compatible))
-        fname = unicode(path, 'utf-8')
+        fname = path.decode('utf-8') if isinstance(path, bytes) else path
         thead = ''
         if faking:
             thead = self.tivo_header(tsn, path, mime)
@@ -158,7 +161,8 @@ class Video(Plugin):
                                                 tsn, mime, thead)
         try:
             if not compatible:
-                 handler.wfile.write('0\r\n\r\n')
+                 # Python 3: Write bytes, not string
+                 handler.wfile.write(b'0\r\n\r\n')
             handler.wfile.flush()
         except Exception as msg:
             logger.info(msg)
@@ -177,20 +181,22 @@ class Video(Plugin):
     def __total_items(self, full_path):
         count = 0
         try:
-            full_path = unicode(full_path, 'utf-8')
+            # Python 3: Ensure full_path is a string
+            if isinstance(full_path, bytes):
+                full_path = full_path.decode('utf-8')
             for f in os.listdir(full_path):
                 if f.startswith('.'):
                     continue
                 f = os.path.join(full_path, f)
-                f2 = f.encode('utf-8')
+                # Count subdirectories
                 if os.path.isdir(f):
                     count += 1
+                # Count video files
                 elif use_extensions:
-                    if os.path.splitext(f2)[1].lower() in EXTENSIONS:
+                    if os.path.splitext(f)[1].lower() in EXTENSIONS:
                         count += 1
-                elif f2 in transcode.info_cache:
-                    if transcode.supported_format(f2):
-                        count += 1
+                elif self.video_file_filter(f):
+                    count += 1
         except:
             pass
         return count
@@ -199,7 +205,8 @@ class Video(Plugin):
         # Size is estimated by taking audio and video bit rate adding 2%
 
         if transcode.tivo_compatible(full_path, tsn, mime)[0]:
-            return os.path.getsize(unicode(full_path, 'utf-8'))
+            path_str = full_path.decode('utf-8') if isinstance(full_path, bytes) else full_path
+            return os.path.getsize(path_str)
         else:
             # Must be re-encoded
             audioBPS = config.getMaxAudioBR(tsn) * 1000
@@ -214,9 +221,9 @@ class Video(Plugin):
         vInfo = transcode.video_info(full_path)
 
         if ((int(vInfo['vHeight']) >= 720 and
-             config.getTivoHeight >= 720) or
+             config.getTivoHeight(tsn) >= 720) or
             (int(vInfo['vWidth']) >= 1280 and
-             config.getTivoWidth >= 1280)):
+             config.getTivoWidth(tsn) >= 1280)):
             data['showingBits'] = '4096'
 
         data.update(metadata.basic(full_path, mtime))
@@ -285,6 +292,9 @@ class Video(Plugin):
         return data
 
     def QueryContainer(self, handler, query):
+        import logging
+        logger = logging.getLogger('pyTivo.video')
+        
         tsn = handler.headers.get('tsn', '')
         subcname = query['Container'][0]
 
@@ -303,6 +313,8 @@ class Video(Plugin):
         files, total, start = self.get_files(handler, query,
                                              self.video_file_filter,
                                              force_alpha, allow_recurse)
+        
+        logger.info('QueryContainer: Found %d files, total=%d, start=%d' % (len(files), total, start))
 
         videos = []
         local_base_path = self.get_local_base_path(handler, query)
@@ -312,7 +324,8 @@ class Video(Plugin):
             try:
                 ltime = time.localtime(mtime)
             except:
-                logger.warning('Bad file time on ' + unicode(f.name, 'utf-8'))
+                fname = f.name.decode('utf-8') if isinstance(f.name, bytes) else f.name
+                logger.warning('Bad file time on ' + fname)
                 mtime = time.time()
                 ltime = time.localtime(mtime)
             video['captureDate'] = hex(int(mtime))
@@ -327,6 +340,7 @@ class Video(Plugin):
             if video['is_dir']:
                 video['small_path'] = subcname + '/' + video['name']
                 video['total_items'] = self.__total_items(f.name)
+                logger.debug('Directory "%s" has %d items' % (video['name'], video['total_items']))
             else:
                 if len(files) == 1 or f.name in transcode.info_cache:
                     video['valid'] = transcode.supported_format(f.name)
@@ -348,25 +362,42 @@ class Video(Plugin):
 
             videos.append(video)
 
-        t = Template(XML_CONTAINER_TEMPLATE, filter=EncodeUnicode)
-        t.container = handler.cname
-        t.name = subcname
-        t.total = total
-        t.start = start
-        t.videos = videos
-        t.quote = quote
-        t.escape = escape
-        t.crc = zlib.crc32
-        t.guid = config.getGUID()
-        t.tivos = config.tivos
-        # Python 3: Ensure template output is string
+        # Python 3: Wrap zlib.crc32 to handle string input
+        def crc32_str(s):
+            if isinstance(s, str):
+                s = s.encode('utf-8')
+            return zlib.crc32(s)
+        
+        # Build template namespace
+        namespace = {
+            'container': handler.cname,
+            'name': subcname,
+            'total': total,
+            'start': start,
+            'videos': videos,
+            'quote': quote,
+            'escape': escape,
+            'crc': crc32_str,
+            'guid': config.getGUID(),
+            'tivos': config.tivos
+        }
+        
+        logger.info('QueryContainer: Rendering %d videos for container "%s"' % (len(videos), subcname))
+        
         try:
+            # Compile template with namespace and convert directly to string
+            t = Template(XML_CONTAINER_TEMPLATE, searchList=[namespace])
             output = str(t)
-        except TypeError:
-            # If str() fails, try getting the response directly
-            output = t.respond()
-            if isinstance(output, bytes):
-                output = output.decode('utf-8')
+        except Exception as e:
+            import traceback
+            logger.error('Template rendering error: %s' % str(e))
+            logger.error('Traceback: %s' % traceback.format_exc())
+            # Last resort: render without Cheetah by simple substitution (basic fallback)
+            output = XML_CONTAINER_TEMPLATE
+            for key, value in namespace.items():
+                if not callable(value):
+                    output = output.replace('$' + key, str(value))
+        
         handler.send_xml(output)
 
     def use_ts(self, tsn, file_path):
@@ -461,8 +492,14 @@ class VideoDetails(DictMixin):
     def __setitem__(self, key, value):
         self.d[key] = value
 
-    def __delitem__(self):
+    def __delitem__(self, key):
         del self.d[key]
+
+    def __len__(self):
+        return len(self.d)
+
+    def __iter__(self):
+        return iter(self.d)
 
     def keys(self):
         return self.d.keys()

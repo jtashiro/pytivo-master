@@ -88,6 +88,20 @@ class TivoHTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         self.server_version = 'pyTivo/1.0'
         self.protocol_version = 'HTTP/1.1'
         self.sys_version = ''
+        # Log incoming connection
+        import logging
+        logger = logging.getLogger('pyTivo.connection')
+        host = client_address[0]
+        # Check if this is a discovered TiVo
+        tivo_name = None
+        for tsn, tivo_info in config.tivos.items():
+            if tivo_info.get('address') == host:
+                tivo_name = tivo_info.get('name', 'Unknown TiVo')
+                break
+        if tivo_name:
+            logger.debug('** Incoming connection from TiVo: %s (%s) **' % (tivo_name, host))
+        else:
+            logger.debug('Incoming connection from: %s' % host)
         BaseHTTPServer.BaseHTTPRequestHandler.__init__(self, request,
             client_address, server)
 
@@ -103,8 +117,16 @@ class TivoHTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         return self.server_version
 
     def do_GET(self):
+        import logging
+        logger = logging.getLogger('pyTivo.request')
         tsn = self.headers.get('TiVo_TCD_ID',
                                self.headers.get('tsn', ''))
+        # Log request details
+        client_ip = self.client_address[0]
+        logger.debug('GET request from %s: %s' % (client_ip, self.path))
+        if tsn:
+            tivo_name = config.tivos.get(tsn, {}).get('name', 'Unknown')
+            logger.debug('  TSN: %s (TiVo: %s)' % (tsn, tivo_name))
         if not self.authorize(tsn):
             return
 

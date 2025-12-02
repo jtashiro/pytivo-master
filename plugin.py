@@ -175,11 +175,12 @@ class Plugin(object):
                     isdir = os.path.isdir(f)
                     if sys.platform == 'darwin':
                         f = unicodedata.normalize('NFC', f)
+                    # Add file/directory if it passes the filter
+                    if not filterFunction or filterFunction(f, file_type):
+                        files.append(FileData(f, isdir))
+                    # If recursing and it's a directory, also get its contents
                     if recurse and isdir:
                         files.extend(build_recursive_list(f))
-                    else:
-                       if not filterFunction or filterFunction(f, file_type):
-                           files.append(FileData(f, isdir))
             except:
                 pass
             return files
@@ -234,9 +235,11 @@ class Plugin(object):
             if force_alpha:
                 filelist.files.sort(key=dir_sort_key)
             elif sortby == '!CaptureDate':
-                filelist.files.sort(key=date_sort_key)
+                # Sort by date but keep directories first
+                filelist.files.sort(key=lambda x: (not x.isdir, -x.mdate))
             else:
-                filelist.files.sort(key=name_sort_key)
+                # Sort by name but keep directories first
+                filelist.files.sort(key=lambda x: (not x.isdir, x.name))
 
             filelist.sortby = sortby
             filelist.unsorted = False

@@ -27,7 +27,12 @@ class DummyResponse:
     
     def __init__(self):
         self._outputChunks = outputChunks = []
-        self.write = write = outputChunks.append
+        # Python 3: Convert bytes to strings as they're written
+        def write(chunk):
+            if isinstance(chunk, bytes):
+                chunk = chunk.decode('utf-8')
+            outputChunks.append(str(chunk))
+        self.write = write
         def getvalue(outputChunks=outputChunks):
             return ''.join(outputChunks)
         self.getvalue = getvalue
