@@ -74,7 +74,7 @@ class Video(Plugin):
 
     def send_file(self, handler, path, query):
         mime = 'video/x-tivo-mpeg'
-        tsn = handler.headers.getheader('tsn', '')
+        tsn = handler.headers.get('tsn', '')
         try:
             assert(tsn)
             tivo_name = config.tivos[tsn].get('name', tsn)
@@ -91,7 +91,7 @@ class Video(Plugin):
                       transcode.tivo_compatible(path, tsn, mime)[0])
 
         try:  # "bytes=XXX-"
-            offset = int(handler.headers.getheader('Range')[6:-1])
+            offset = int(handler.headers.get('Range')[6:-1])
         except:
             offset = 0
 
@@ -285,7 +285,7 @@ class Video(Plugin):
         return data
 
     def QueryContainer(self, handler, query):
-        tsn = handler.headers.getheader('tsn', '')
+        tsn = handler.headers.get('tsn', '')
         subcname = query['Container'][0]
 
         if not self.get_local_path(handler, query):
@@ -425,7 +425,7 @@ class Video(Plugin):
                         chunk, '\0' * padding])
 
     def TVBusQuery(self, handler, query):
-        tsn = handler.headers.getheader('tsn', '')
+        tsn = handler.headers.get('tsn', '')
         f = query['File'][0]
         path = self.get_local_path(handler, query)
         file_path = os.path.normpath(path + '/' + f)

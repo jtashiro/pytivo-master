@@ -65,6 +65,7 @@ class ZCBroadcast:
                     address, port, 0, 0, desc)
                 self.rz.registerService(info)
                 self.share_info.append(info)
+                logger.info('Zeroconf: Registered %s._%s._tcp.local. at %s:%d' % (title, tt, socket.inet_ntoa(address), port))
 
     def scan(self):
         """ Look for TiVos using Zeroconf. """
@@ -134,6 +135,10 @@ class Beacon:
 
     def add_service(self, service):
         self.services.append(service)
+        logger = logging.getLogger('pyTivo.beacon')
+        beacon_addrs = config.getBeaconAddresses()
+        logger.info('Beacon addresses: %s' % beacon_addrs)
+        logger.info('Beacon service: %s' % service)
         self.send_beacon()
 
     def format_services(self):
@@ -156,17 +161,21 @@ class Beacon:
     def send_beacon(self):
         beacon_ips = config.getBeaconAddresses()
         beacon = self.format_beacon('broadcast')
+        logger = logging.getLogger('pyTivo.beacon')
         for beacon_ip in beacon_ips.split():
             if beacon_ip != 'listen':
                 try:
                     packet = beacon
+                    bytes_sent = 0
                     while packet:
                         result = self.UDPSock.sendto(packet.encode('utf-8'), (beacon_ip, 2190))
                         if result < 0:
                             break
+                        bytes_sent += result
                         packet = packet[result:]
+                    logger.debug('Beacon broadcast: %d bytes to %s:2190' % (bytes_sent, beacon_ip))
                 except Exception as e:
-                    print(e)
+                    logger.error('Beacon broadcast failed to %s: %s' % (beacon_ip, str(e)))
 
     def start(self):
         self.send_beacon()

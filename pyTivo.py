@@ -50,6 +50,13 @@ def setup(in_service=False):
     logger.info('System: ' + platform.platform())
 
     for section, settings in config.getShares():
+        # Validate path for shares that have one
+        if 'path' in settings:
+            share_path = settings['path']
+            if os.path.isdir(share_path):
+                logger.info('Share [%s]: path found: %s' % (section, share_path))
+            else:
+                logger.error('Share [%s]: path not found: %s' % (section, share_path))
         httpd.add_container(section, settings)
 
     b = beacon.Beacon()
