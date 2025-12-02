@@ -629,20 +629,30 @@ class PyTivoAutomation:
                 else:
                     print("\n✗ Transfer monitoring timed out or failed")
             elif cmd == 'import-wait-remove':
-                # Execute the sequence from config which includes WAIT_FOR
+                # Execute the sequence from config which includes WAIT_FOR for both Start and Done
+                print("\nWill remove file after successful transfer.")
                 if not self.execute_sequence('import-wait-remove'):
-                    print("Sequence not found, falling back to manual mode")
-                    self.go_to_import()
-                
-                print("\nWaiting for transfer to complete...")
-                print("Will remove file after successful transfer.")
-                success, filename = self.monitor_transfer(timeout_minutes=30, remove_after=True)
-                if success:
-                    print("\n✓ Transfer completed successfully!")
-                    if filename:
-                        print(f"  File: {filename}")
+                    print("✗ Sequence not found or failed")
                 else:
-                    print("\n✗ Transfer monitoring timed out or failed")
+                    # Sequence completed, now find and delete the file
+                    # Extract filename from recent log entries
+                    log_path = self.get_log_file_path()
+                    if log_path and os.path.exists(log_path):
+                        try:
+                            with open(log_path, 'r') as f:
+                                # Read last 100 lines to find the Done message
+                                lines = f.readlines()
+                                for line in reversed(lines[-100:]):
+                                    if 'Done sending' in line:
+                                        match = re.search(r'Done sending "([^"]+)"', line)
+                                        if match:
+                                            filename = match.group(1)
+                                            print(f"\n✓ Transfer completed successfully!")
+                                            print(f"  File: {filename}")
+                                            self.remove_file(filename)
+                                            break
+                        except Exception as e:
+                            print(f"Error extracting filename: {e}")
             elif cmd == 'b':
                 self.remote.press(TiVoButton.LEFT)  # Back is often LEFT
             elif cmd == 'p':
