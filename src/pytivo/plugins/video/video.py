@@ -171,9 +171,14 @@ class Video(Plugin):
         if mega_elapsed < 1:
             mega_elapsed = 1
         rate = count * 8.0 / mega_elapsed
-        logger.info('[%s] Done sending "%s" to %s, %d bytes, %.2f Mb/s' %
+        elapsed_seconds = int(time.time() - start)
+        hours = elapsed_seconds // 3600
+        minutes = (elapsed_seconds % 3600) // 60
+        seconds = elapsed_seconds % 60
+        duration_str = '%d:%02d:%02d (%ds)' % (hours, minutes, seconds, elapsed_seconds)
+        logger.info('[%s] Done sending "%s" to %s, %d bytes, %.2f Mb/s, %s' %
                     (time.strftime('%d/%b/%Y %H:%M:%S'), fname, 
-                     tivo_name, count, rate))
+                     tivo_name, count, rate, duration_str))
 
     def __duration(self, full_path):
         return transcode.video_info(full_path)['millisecs']
