@@ -446,15 +446,26 @@ class PyTivoAutomation:
         Finds the file path in [tivo-importer] section and deletes it.
         
         Args:
-            filename: Name of the file to remove (basename, not full path)
+            filename: Full path or basename of the file to remove
         """
         config_path = self.get_pytivo_config_path()
         if not config_path:
             print(f"Cannot find file - config not found")
             return False
         
-        print(f"\nDeleting file '{filename}' from filesystem...")
+        print(f"\nDeleting file from filesystem...")
         
+        # If filename is already a full path and exists, delete it directly
+        if os.path.isabs(filename) and os.path.exists(filename):
+            try:
+                os.remove(filename)
+                print(f"✓ Successfully deleted: {filename}")
+                return True
+            except Exception as e:
+                print(f"Error deleting file: {e}")
+                return False
+        
+        # Otherwise, search config for the file
         try:
             with open(config_path, 'r') as f:
                 lines = f.readlines()
@@ -462,6 +473,7 @@ class PyTivoAutomation:
             # Find [tivo-importer] section and locate matching file path
             in_importer_section = False
             file_to_delete = None
+            basename = os.path.basename(filename)
             
             for line in lines:
                 stripped = line.strip()
@@ -478,7 +490,7 @@ class PyTivoAutomation:
                     if match:
                         file_path = match.group(1).strip()
                         # Check if this path ends with our filename
-                        if os.path.basename(file_path) == filename:
+                        if os.path.basename(file_path) == basename:
                             file_to_delete = file_path
                             break
             
@@ -491,7 +503,7 @@ class PyTivoAutomation:
                     print(f"File not found on filesystem: {file_to_delete}")
                     return False
             else:
-                print(f"File '{filename}' not found in [tivo-importer] section")
+                print(f"File '{basename}' not found in [tivo-importer] section")
                 return False
                 
         except Exception as e:
@@ -560,7 +572,7 @@ class PyTivoAutomation:
             elif cmd == 'import-wait-remove':
                 self.go_to_import()
                 print("\nWaiting for transfer to start and complete...")
-                print("Will remove file from config after successful transfer.")
+                print("Will remove file after successful transfer.")
                 success, filename = self.monitor_transfer(timeout_minutes=30, remove_after=True)
                 if success:
                     print("\n✓ Transfer completed successfully!")
