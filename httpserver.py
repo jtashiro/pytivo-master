@@ -278,8 +278,17 @@ class TivoHTTPHandler(BaseHTTPServer.BaseHTTPRequestHandler):
         return False
 
     def log_message(self, format, *args):
-        self.server.logger.info("%s [%s] %s" % (self.address_string(),
-                                self.log_date_time_string(), format%args))
+        # Check if request is from a discovered TiVo
+        client_ip = self.address_string()
+        tivo_marker = ''
+        for tsn, tivo_info in config.tivos.items():
+            if tivo_info.get('address') == client_ip:
+                tivo_name = tivo_info.get('name', 'TiVo')
+                tivo_marker = ' ** %s **' % tivo_name
+                break
+        
+        self.server.logger.info("%s [%s] %s%s" % (client_ip,
+                                self.log_date_time_string(), format%args, tivo_marker))
 
     def send_fixed(self, page, mime, code=200, refresh=''):
         if isinstance(page, str):
