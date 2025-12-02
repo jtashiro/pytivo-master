@@ -1056,6 +1056,7 @@ class PyTivoAutomation:
     def remove_file(self, filename):
         """
         Delete the transferred file from the filesystem.
+        If file is a symlink, only removes the symlink (not the target).
         Searches through all share sections in pyTivo config to find the file.
         
         Args:
@@ -1066,8 +1067,12 @@ class PyTivoAutomation:
         # If filename is already a full path and exists, delete it directly
         if os.path.isabs(filename) and os.path.exists(filename):
             try:
-                os.remove(filename)
-                print(f"  ✓ Deleted: {filename}")
+                if os.path.islink(filename):
+                    os.unlink(filename)  # Remove symlink only
+                    print(f"  ✓ Deleted symlink: {filename}")
+                else:
+                    os.remove(filename)  # Remove regular file
+                    print(f"  ✓ Deleted: {filename}")
                 return True
             except Exception as e:
                 print(f"  ✗ Error deleting file: {e}")
@@ -1108,8 +1113,12 @@ class PyTivoAutomation:
                         potential_file = os.path.join(share_path, basename)
                         if os.path.exists(potential_file):
                             try:
-                                os.remove(potential_file)
-                                print(f"  ✓ Deleted from [{current_section}]: {potential_file}")
+                                if os.path.islink(potential_file):
+                                    os.unlink(potential_file)  # Remove symlink only
+                                    print(f"  ✓ Deleted symlink from [{current_section}]: {potential_file}")
+                                else:
+                                    os.remove(potential_file)  # Remove regular file
+                                    print(f"  ✓ Deleted from [{current_section}]: {potential_file}")
                                 return True
                             except Exception as e:
                                 print(f"  ✗ Error deleting file: {e}")
