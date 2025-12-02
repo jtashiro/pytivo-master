@@ -249,9 +249,13 @@ class PyTivoAutomation:
                 f.seek(0, 2)
                 start_pos = f.tell()
             
-            # Press SELECT twice to start transfer
-            print(f"    SELECT (first press)")
+            # Press SELECT to enter item details
+            print(f"    SELECT (first press - enter details)")
             self.remote.press(TiVoButton.SELECT, delay=0.5)
+            # Move DOWN to transfer option
+            print(f"    DOWN (to transfer option)")
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            # Press SELECT to start transfer
             print(f"    SELECT (second press - start transfer)")
             self.remote.press(TiVoButton.SELECT, delay=0.5)
             
