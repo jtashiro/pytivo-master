@@ -264,30 +264,116 @@ class PyTivoAutomation:
         
         transferred = 0
         transfer_list = []
+        started_transfers = []
+        
+        # Helper function to check for new transfers in log
+        def check_for_transfers(start_pos):
+            """Check log for 'Start sending' messages and report them."""
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(start_pos)
+                    new_lines = f.readlines()
+                    new_pos = f.tell()
+                
+                for line in new_lines:
+                    if 'Start sending' in line:
+                        match = re.search(r'Start sending "([^"]+)"', line)
+                        if match:
+                            started_file = match.group(1)
+                            if started_file not in started_transfers:
+                                started_transfers.append(started_file)
+                                print(f"\n    → Transfer started: {started_file}")
+                
+                return new_pos
+            except Exception as e:
+                return start_pos
+        
+        # Get initial log position
+        with open(log_path, 'r') as f:
+            f.seek(0, 2)
+            log_pos = f.tell()
         
         for item_num in range(items_to_transfer):
-            print(f"  Item {item_num + 1}: ", end="")
-            
             # Press SELECT to enter item details
             self.remote.press(TiVoButton.SELECT, delay=2.5)
+            log_pos = check_for_transfers(log_pos)
+            
+            # Check log for AnchorItem to get filename
+            filename = None
+            timeout = time.time() + 3
+            while time.time() < timeout and not filename:
+                try:
+                    with open(log_path, 'r') as f:
+                        f.seek(log_pos)
+                        new_lines = f.readlines()
+                        log_pos = f.tell()
+                    
+                    for line in new_lines:
+                        # Check for Start sending while looking for filename
+                        if 'Start sending' in line:
+                            match = re.search(r'Start sending "([^"]+)"', line)
+                            if match:
+                                started_file = match.group(1)
+                                if started_file not in started_transfers:
+                                    started_transfers.append(started_file)
+                                    print(f"\n    → Transfer started: {started_file}")
+                        
+                        if 'AnchorItem=' in line:
+                            # Extract: AnchorItem=%2FShare%2FFilename.mkv
+                            match = re.search(r'AnchorItem=([^&\s]+)', line)
+                            if match:
+                                encoded = match.group(1)
+                                # URL decode and extract just the filename
+                                import urllib.parse
+                                decoded = urllib.parse.unquote(encoded)
+                                # Get just the filename (last part after /)
+                                filename = decoded.split('/')[-1]
+                                break
+                    
+                    if filename:
+                        break
+                    time.sleep(0.2)
+                except Exception as e:
+                    break
+            
+            # Display with filename if found
+            if filename:
+                print(f"  Item {item_num + 1}: {filename}")
+                transfer_list.append(filename)
+            else:
+                print(f"  Item {item_num + 1}: ", end="")
+            
             # Move DOWN to transfer option
             self.remote.press(TiVoButton.DOWN, delay=2.5)
+            log_pos = check_for_transfers(log_pos)
+            
             # Press SELECT to queue transfer
             self.remote.press(TiVoButton.SELECT, delay=2.5)
-            print("✓ Queued")
+            log_pos = check_for_transfers(log_pos)
+            
+            if not filename:
+                print("✓ Queued")
+            else:
+                print(f"    ✓ Queued")
             
             transferred += 1
             
             # Go back to list with LEFT
             self.remote.press(TiVoButton.LEFT, delay=2.5)
+            log_pos = check_for_transfers(log_pos)
             
             # Move DOWN to next item
             self.remote.press(TiVoButton.DOWN, delay=2.5)
+            log_pos = check_for_transfers(log_pos)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
         print(f"{'=' * 60}")
         print(f"Total items queued: {transferred}")
+        if transfer_list:
+            print(f"\nQueued files:")
+            for idx, item in enumerate(transfer_list, 1):
+                print(f"  {idx}. {item}")
         print(f"\nTiVo will pull items sequentially from the queue.")
         print(f"{'=' * 60}\n")
         
