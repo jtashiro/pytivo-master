@@ -629,8 +629,12 @@ class PyTivoAutomation:
                 else:
                     print("\n✗ Transfer monitoring timed out or failed")
             elif cmd == 'import-wait-remove':
-                self.go_to_import()
-                print("\nWaiting for transfer to start and complete...")
+                # Execute the sequence from config which includes WAIT_FOR
+                if not self.execute_sequence('import-wait-remove'):
+                    print("Sequence not found, falling back to manual mode")
+                    self.go_to_import()
+                
+                print("\nWaiting for transfer to complete...")
                 print("Will remove file after successful transfer.")
                 success, filename = self.monitor_transfer(timeout_minutes=30, remove_after=True)
                 if success:
