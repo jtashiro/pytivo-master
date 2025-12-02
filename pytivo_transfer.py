@@ -21,18 +21,41 @@ from tivo_remote import TiVoRemote, TiVoButton, TiVoNavigator
 class PyTivoAutomation:
     """Automate pyTivo transfers."""
     
-    def __init__(self, tivo_host: str, nav_config: str = 'tivo_navigation.txt'):
+    def __init__(self, tivo_host: str, nav_config: str = None):
         """
         Initialize automation.
         
         Args:
             tivo_host: TiVo IP address
-            nav_config: Path to navigation configuration file
+            nav_config: Path to navigation configuration file (optional)
+                       If not provided, searches standard locations
         """
         self.remote = TiVoRemote(tivo_host)
         self.nav = TiVoNavigator(self.remote)
+        
+        # Find navigation config file
+        if nav_config is None:
+            nav_config = self._find_nav_config()
+        
         self.nav_config = nav_config
         self.nav_sequences = self.load_navigation_config()
+    
+    def _find_nav_config(self):
+        """Find tivo_navigation.txt in standard locations."""
+        search_paths = [
+            'tivo_navigation.txt',  # Current directory
+            os.path.join(os.path.dirname(__file__), 'tivo_navigation.txt'),  # Same dir as script
+            '/usr/local/bin/tivo_navigation.txt',  # System install
+            '/usr/local/etc/tivo_navigation.txt',  # Alternative system location
+            os.path.expanduser('~/.config/pytivo/tivo_navigation.txt'),  # User config
+        ]
+        
+        for path in search_paths:
+            if os.path.exists(path):
+                return path
+        
+        # Default to current directory if not found
+        return 'tivo_navigation.txt'
         
     def load_navigation_config(self):
         """

@@ -14,18 +14,27 @@
 
 **Installation:**
 ```bash
-# 1. Copy files to system locations
+# 1. Install core pytivo automation scripts
+sudo cp pytivo_transfer.py /usr/local/bin/
+sudo cp tivo_remote.py /usr/local/bin/
+sudo chmod +x /usr/local/bin/pytivo_transfer.py
+
+# Install navigation config
+sudo mkdir -p /usr/local/etc
+sudo cp tivo_navigation.txt /usr/local/etc/
+
+# 2. Copy watcher service script
 sudo cp pytivo_watcher_service.py /usr/local/bin/
 sudo chmod +x /usr/local/bin/pytivo_watcher_service.py
 
-# 2. Copy systemd unit file
+# 3. Copy systemd unit file
 sudo cp pytivo-watcher.service /etc/systemd/system/
 
-# 3. Edit service file to match your environment
+# 4. Edit service file to match your environment
 sudo nano /etc/systemd/system/pytivo-watcher.service
-# Update: User, Group, TIVO_IP, WATCH_DIR, WorkingDirectory
+# Update: User, Group, TIVO_IP, WATCH_DIR
 
-# 4. Create log directory
+# 5. Create log directory
 sudo mkdir -p /var/log
 sudo touch /var/log/pytivo-watcher.log
 sudo chown jtashiro:jtashiro /var/log/pytivo-watcher.log
@@ -84,17 +93,26 @@ sudo systemctl enable pytivo-watcher
 
 **Installation:**
 ```bash
-# 1. Copy script to system location
+# 1. Install core pytivo automation scripts
+sudo cp pytivo_transfer.py /usr/local/bin/
+sudo cp tivo_remote.py /usr/local/bin/
+sudo chmod +x /usr/local/bin/pytivo_transfer.py
+
+# Install navigation config
+sudo mkdir -p /usr/local/etc
+sudo cp tivo_navigation.txt /usr/local/etc/
+
+# 2. Copy cron script
 sudo cp pytivo_watcher_cron.sh /usr/local/bin/
 sudo chmod +x /usr/local/bin/pytivo_watcher_cron.sh
 
-# 2. Create log directory
+# 3. Create log directory
 mkdir -p ~/logs
 
-# 3. Test the script manually
+# 4. Test the script manually
 /usr/local/bin/pytivo_watcher_cron.sh
 
-# 4. Add to crontab
+# 5. Add to crontab
 crontab -e
 
 # Add one of these lines:
@@ -110,10 +128,10 @@ crontab -e
 # Run every day at 2 AM:
 0 2 * * * /usr/local/bin/pytivo_watcher_cron.sh
 
-# 5. Verify cron entry
+# 6. Verify cron entry
 crontab -l
 
-# 6. View logs
+# 7. View logs
 tail -f ~/logs/pytivo-watcher-cron.log
 ```
 
