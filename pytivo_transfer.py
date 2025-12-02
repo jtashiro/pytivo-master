@@ -321,7 +321,7 @@ class PyTivoAutomation:
             self.remote.press(TiVoButton.SELECT, delay=2.5)
             log_pos = check_for_transfers(log_pos)
             
-            # Check log for AnchorItem to get filename
+            # Check log for TVBusQuery or AnchorItem to get filename
             filename = None
             timeout = time.time() + 3
             while time.time() < timeout and not filename:
@@ -332,7 +332,7 @@ class PyTivoAutomation:
                         log_pos = f.tell()
                     
                     for line in new_lines:
-                        # Check for Start sending while looking for filename
+                        # Check for Start sending and Done sending
                         if 'Start sending' in line:
                             match = re.search(r'Start sending "([^"]+)"', line)
                             if match:
@@ -340,16 +340,35 @@ class PyTivoAutomation:
                                 if started_file not in started_transfers:
                                     started_transfers.append(started_file)
                                     print(f"\n    → Transfer started: {started_file}")
+                                    sys.stdout.flush()
                         
-                        if 'AnchorItem=' in line:
-                            # Extract: AnchorItem=%2FShare%2FFilename.mkv
-                            match = re.search(r'AnchorItem=([^&\s]+)', line)
+                        if 'Done sending' in line:
+                            match = re.search(r'Done sending "([^"]+)"', line)
+                            if match:
+                                done_file = match.group(1)
+                                print(f"\n    → Transfer completed: {done_file}")
+                                sys.stdout.flush()
+                        
+                        # Look for TVBusQuery which has the filename
+                        if 'TVBusQuery' in line and 'File=' in line:
+                            # Extract: File=%2FFilename.mkv
+                            match = re.search(r'File=([^&\s]+)', line)
                             if match:
                                 encoded = match.group(1)
                                 # URL decode and extract just the filename
                                 import urllib.parse
                                 decoded = urllib.parse.unquote(encoded)
-                                # Get just the filename (last part after /)
+                                # Remove leading slash and get filename
+                                filename = decoded.lstrip('/').split('/')[-1]
+                                break
+                        
+                        # Fallback to AnchorItem if TVBusQuery not found
+                        if not filename and 'AnchorItem=' in line:
+                            match = re.search(r'AnchorItem=([^&\s]+)', line)
+                            if match:
+                                encoded = match.group(1)
+                                import urllib.parse
+                                decoded = urllib.parse.unquote(encoded)
                                 filename = decoded.split('/')[-1]
                                 break
                     
@@ -1136,6 +1155,7 @@ Note: Automated mode is fragile and may need customization for your menu layout.
     print("pyTivo Transfer Automation")
     print("=" * 60)
     print(f"\nTiVo: {args.tivo_ip}")
+    sys.stdout.flush()
     
     automation = PyTivoAutomation(args.tivo_ip)
     
@@ -1145,6 +1165,7 @@ Note: Automated mode is fragile and may need customization for your menu layout.
         return 1
     
     print("✓ Connected to TiVo")
+    sys.stdout.flush()
     
     try:
         if args.sequence:
