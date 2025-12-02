@@ -183,9 +183,11 @@ class PyTivoAutomation:
                 start_pos = f.tell()
             
             # Navigate: DOWN then SELECT
-            print(f"  Attempt {attempt + 1}: DOWN + SELECT")
-            self.remote.press(TiVoButton.DOWN, delay=0.3)
-            self.remote.press(TiVoButton.SELECT, delay=1.0)
+            print(f"  Attempt {attempt + 1}: DOWN")
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            
+            print(f"    SELECT (entering share)")
+            self.remote.press(TiVoButton.SELECT, delay=1.5)
             
             # Check log for Container query with our share name
             found = False
@@ -210,9 +212,10 @@ class PyTivoAutomation:
                     print(f"Error reading log: {e}")
                     break
             
-            # Wrong share, back out with LEFT
-            print(f"    Not the right share, backing out...")
-            self.remote.press(TiVoButton.LEFT, delay=0.5)
+            # Wrong share, back out with LEFT and try next
+            print(f"    Not the right share, pressing LEFT to back out...")
+            self.remote.press(TiVoButton.LEFT, delay=1.0)
+            # Continue to next iteration which will do DOWN + SELECT again
         
         print(f"✗ Share '{share_name}' not found after {max_attempts} attempts")
         return False
