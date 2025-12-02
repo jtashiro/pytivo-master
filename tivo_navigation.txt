@@ -1,0 +1,61 @@
+# TiVo Navigation Script Configuration
+#
+# This file defines button sequences for common TiVo navigation tasks.
+# Each command is defined with a name and a sequence of button presses.
+#
+# Format:
+#   [command_name]
+#   button_name delay_seconds
+#   button_name delay_seconds
+#   ...
+#
+# Available buttons:
+#   UP, DOWN, LEFT, RIGHT, SELECT, TIVO (home), LIVETV, GUIDE, INFO
+#   BACK, PLAY, PAUSE, REVERSE, FORWARD, REPLAY, ADVANCE, RECORD
+#   CHANNELUP, CHANNELDOWN, ENTER, CLEAR, NUM0-NUM9
+#   TOP (jump to top with 50 rapid UP presses)
+#   BOTTOM (jump to bottom with 50 rapid DOWN presses)
+#
+# Delay is in seconds (can be decimal like 0.5)
+# Lines starting with # are comments
+
+[devices]
+# Navigate to Devices & Messages screen
+TIVO 0.5
+SELECT 0.5
+LEFT 0.5
+BOTTOM 0.5
+RIGHT 0.5
+BOTTOM 0.5
+SELECT 0.5
+
+[import]
+# Navigate to Import from pyTivo screen (assumes at home)
+TIVO 0.5
+SELECT 0.5
+LEFT 0.5
+BOTTOM 0.5
+RIGHT 0.5
+BOTTOM 0.5
+SELECT 0.5
+SELECT 0.5
+SELECT 0.5
+
+[myshows]
+# Navigate to My Shows
+TIVO 0.5
+LEFT 0.5
+SELECT 0.5
+
+[import-wait-remove]
+# Navigate to Import, wait for transfer, then remove file
+TIVO 0.5
+SELECT 0.5
+LEFT 0.5
+BOTTOM 0.5
+RIGHT 0.5
+BOTTOM 0.5
+SELECT 0.5
+SELECT 0.5
+SELECT 0.5
+TIVO 0.5
