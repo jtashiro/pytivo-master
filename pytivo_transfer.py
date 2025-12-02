@@ -70,15 +70,24 @@ class PyTivoAutomation:
                         current_sequence = []
                         continue
                     
-                    # Parse button and delay
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        button_name = parts[0].upper()
-                        try:
-                            delay = float(parts[1])
-                            current_sequence.append((button_name, delay))
-                        except ValueError:
-                            print(f"Warning: Invalid delay in line: {line}")
+                    # Parse button and delay, or WAIT_FOR command
+                    if line.upper().startswith('WAIT_FOR'):
+                        # Parse: WAIT_FOR "text to match"
+                        match = re.search(r'WAIT_FOR\s+"([^"]+)"', line, re.IGNORECASE)
+                        if match:
+                            wait_text = match.group(1)
+                            current_sequence.append(('WAIT_FOR', wait_text))
+                        else:
+                            print(f"Warning: Invalid WAIT_FOR syntax in line: {line}")
+                    else:
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            button_name = parts[0].upper()
+                            try:
+                                delay = float(parts[1])
+                                current_sequence.append((button_name, delay))
+                            except ValueError:
+                                print(f"Warning: Invalid delay in line: {line}")
                 
                 # Save last command
                 if current_command and current_sequence:
@@ -90,6 +99,52 @@ class PyTivoAutomation:
         except Exception as e:
             print(f"Error loading navigation config: {e}")
             return {}
+    
+    def wait_for_log_message(self, search_text: str, timeout_minutes: int = 5):
+        """
+        Wait for a specific message to appear in the log file.
+        
+        Args:
+            search_text: Text to search for in log messages
+            timeout_minutes: Maximum time to wait
+        
+        Returns:
+            True if message found, False if timeout
+        """
+        log_path = self.get_log_file_path()
+        if not log_path or not os.path.exists(log_path):
+            print(f"Warning: Cannot monitor log file")
+            return False
+        
+        print(f"Waiting for log message: '{search_text}'")
+        
+        # Get current position in log file
+        with open(log_path, 'r') as f:
+            f.seek(0, 2)  # Seek to end
+            start_pos = f.tell()
+        
+        start_time = time.time()
+        
+        while (time.time() - start_time) < (timeout_minutes * 60):
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(start_pos)
+                    new_lines = f.readlines()
+                    start_pos = f.tell()
+                
+                for line in new_lines:
+                    if search_text in line:
+                        print(f"✓ Found: {search_text}")
+                        return True
+                
+                time.sleep(0.5)
+                
+            except Exception as e:
+                print(f"Error reading log: {e}")
+                time.sleep(1)
+        
+        print(f"✗ Timeout waiting for: {search_text}")
+        return False
     
     def execute_sequence(self, command_name: str):
         """
@@ -110,19 +165,24 @@ class PyTivoAutomation:
         sequence = self.nav_sequences[command_name]
         print(f"Executing sequence: {command_name}")
         
-        for button_name, delay in sequence:
+        for button_name, param in sequence:
             # Handle special commands
-            if button_name == 'TOP':
+            if button_name == 'WAIT_FOR':
+                # param is the text to wait for
+                if not self.wait_for_log_message(param):
+                    print(f"Warning: Continuing despite timeout")
+            elif button_name == 'TOP':
                 self.nav.jump_to_top()
             elif button_name == 'BOTTOM':
                 self.nav.jump_to_bottom()
             elif button_name == 'TIVO':
                 self.nav.go_home()
             else:
+                # param is the delay
                 # Get button from enum
                 try:
                     button = TiVoButton[button_name]
-                    self.remote.press(button, delay=delay)
+                    self.remote.press(button, delay=param)
                 except KeyError:
                     print(f"Warning: Unknown button '{button_name}'")
         
