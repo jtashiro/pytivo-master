@@ -83,21 +83,38 @@ class ZCBroadcast:
         # Any results?
         if names:
             config.tivos_found = True
+            self.logger.debug('Found %d TiVo(s): %s' % (len(names), ', '.join(names)))
+        else:
+            self.logger.info('No TiVos found on network')
 
         # Now get the addresses -- this is the slow part
         for name in names:
             info = self.rz.getServiceInfo(VIDS, name + '.' + VIDS)
             if info:
-                tsn = info.properties.get('TSN')
+                self.logger.debug('Got service info for: %s' % name)
+                # Python 3: properties might be bytes, need to handle both
+                # Try both 'TSN' and 'tsn' keys, and handle bytes
+                tsn = info.properties.get(b'TSN') or info.properties.get('TSN')
                 if config.get_server('togo_all'):
-                    tsn = info.properties.get('tsn', tsn)
+                    tsn = info.properties.get(b'tsn') or info.properties.get('tsn', tsn)
+                # Decode bytes to string if needed
+                if isinstance(tsn, bytes):
+                    tsn = tsn.decode('utf-8')
                 if tsn:
                     address = socket.inet_ntoa(info.getAddress())
                     port = info.getPort()
                     config.tivos[tsn] = {'name': name, 'address': address, 
                                          'port': port}
-                    config.tivos[tsn].update(info.properties)
+                    # Convert property values from bytes to strings for Python 3
+                    for key, value in info.properties.items():
+                        prop_key = key.decode('utf-8') if isinstance(key, bytes) else key
+                        prop_value = value.decode('utf-8') if isinstance(value, bytes) else value
+                        config.tivos[tsn][prop_key] = prop_value
                     self.logger.info(name)
+                else:
+                    self.logger.debug('No TSN found for: %s' % name)
+            else:
+                self.logger.debug('No service info for: %s' % name)
 
         return names
 
