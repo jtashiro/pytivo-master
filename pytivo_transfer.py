@@ -195,12 +195,20 @@ class PyTivoAutomation:
                 # Get all video files (including symlinks)
                 all_entries = os.listdir(share_path)
                 files = []
+                symlinks = []
                 for f in all_entries:
                     full_path = os.path.join(share_path, f)
-                    # Include file if it's a video, whether regular file or symlink
-                    if os.path.isfile(full_path) or os.path.islink(full_path):
-                        if f.lower().endswith(('.mkv', '.mp4', '.avi', '.mpg', '.mpeg', '.ts')):
+                    # Check if it's a video file extension
+                    if f.lower().endswith(('.mkv', '.mp4', '.avi', '.mpg', '.mpeg', '.ts')):
+                        # Check symlink first (before isfile, as isfile may return False for broken symlinks)
+                        if os.path.islink(full_path):
+                            symlinks.append(f)
                             files.append(f)
+                        elif os.path.isfile(full_path):
+                            files.append(f)
+                
+                if symlinks:
+                    print(f"  Found {len(symlinks)} symlink(s): {', '.join(symlinks)}")
                 
                 if not files:
                     return True
