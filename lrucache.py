@@ -145,7 +145,8 @@ class LRUCache(object):
         else:
             # size may have been reset, so we loop
             overage = len(self.__heap) - self.size + 1
-            for i in xrange(overage):
+            # Python 3: use range instead of xrange
+            for i in range(overage):
                 lru = heappop(self.__heap)
                 del self.__dict[lru.key]
             node = self.__Node(key, obj, time.time())
