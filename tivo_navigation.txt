@@ -21,6 +21,9 @@
 #                     Example: WAIT_FOR "Start sending"
 #   DELETE_SOURCE_FILE - Delete the transferred file from filesystem
 #                        (extracts filename from last "Done sending" log message)
+#   LOCATE_SHARE "text" - Navigate through shares until log shows Container matching text
+#                         Presses DOWN+SELECT, monitors log, backs out with LEFT if wrong
+#                         Example: LOCATE_SHARE "Watcher"
 #
 # Delay is in seconds (can be decimal like 0.5)
 # Lines starting with # are comments
@@ -70,3 +73,20 @@ WAIT_FOR "Done sending"
 DELETE_SOURCE_FILE
 LEFT 0.5
 TIVO 0.5
+
+[watcher]
+# Navigate to Import, wait for transfer to complete, then remove file and go back
+TIVO 0.5
+SELECT 0.5
+LEFT 0.5
+BOTTOM 0.5
+RIGHT 0.5
+LOCATE_SHARE "Watcher"
+SELECT 0.5
+WAIT_FOR "Start sending"
+LEFT 1
+WAIT_FOR "Done sending"
+DELETE_SOURCE_FILE
+LEFT 0.5
+TIVO 0.5
+

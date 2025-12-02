@@ -79,6 +79,14 @@ class PyTivoAutomation:
                             current_sequence.append(('WAIT_FOR', wait_text))
                         else:
                             print(f"Warning: Invalid WAIT_FOR syntax in line: {line}")
+                    elif line.upper().startswith('LOCATE_SHARE'):
+                        # Parse: LOCATE_SHARE "share name"
+                        match = re.search(r'LOCATE_SHARE\s+"([^"]+)"', line, re.IGNORECASE)
+                        if match:
+                            share_text = match.group(1)
+                            current_sequence.append(('LOCATE_SHARE', share_text))
+                        else:
+                            print(f"Warning: Invalid LOCATE_SHARE syntax in line: {line}")
                     elif line.upper().strip() == 'DELETE_SOURCE_FILE':
                         current_sequence.append(('DELETE_SOURCE_FILE', None))
                     else:
@@ -148,6 +156,67 @@ class PyTivoAutomation:
         print(f"✗ Timeout waiting for: {search_text}")
         return False
     
+    def locate_share(self, share_name: str, max_attempts: int = 20):
+        """
+        Navigate through shares until the correct one is found by monitoring log.
+        Performs DOWN+SELECT, checks log for Container query matching share name,
+        backs out with LEFT if wrong, repeats until found.
+        
+        Args:
+            share_name: Share name to search for (will match against Container= in log)
+            max_attempts: Maximum number of shares to try
+        
+        Returns:
+            True if share found, False if not found after max attempts
+        """
+        log_path = self.get_log_file_path()
+        if not log_path or not os.path.exists(log_path):
+            print(f"Warning: Cannot monitor log file for share location")
+            return False
+        
+        print(f"Locating share containing: '{share_name}'")
+        
+        for attempt in range(max_attempts):
+            # Get current log position
+            with open(log_path, 'r') as f:
+                f.seek(0, 2)
+                start_pos = f.tell()
+            
+            # Navigate: DOWN then SELECT
+            print(f"  Attempt {attempt + 1}: DOWN + SELECT")
+            self.remote.press(TiVoButton.DOWN, delay=0.3)
+            self.remote.press(TiVoButton.SELECT, delay=1.0)
+            
+            # Check log for Container query with our share name
+            found = False
+            timeout = time.time() + 3  # 3 second timeout per attempt
+            
+            while time.time() < timeout:
+                try:
+                    with open(log_path, 'r') as f:
+                        f.seek(start_pos)
+                        new_lines = f.readlines()
+                    
+                    for line in new_lines:
+                        # Look for: Container=Share%20Name or Container="Share Name"
+                        if 'QueryContainer' in line and 'Container=' in line:
+                            # Extract container name from URL-encoded or regular format
+                            if share_name in line or share_name.replace(' ', '%20') in line:
+                                print(f"✓ Found share: {share_name}")
+                                return True
+                    
+                    time.sleep(0.2)
+                except Exception as e:
+                    print(f"Error reading log: {e}")
+                    break
+            
+            # Wrong share, back out with LEFT
+            print(f"    Not the right share, backing out...")
+            self.remote.press(TiVoButton.LEFT, delay=0.5)
+        
+        print(f"✗ Share '{share_name}' not found after {max_attempts} attempts")
+        return False
+    
     def execute_sequence(self, command_name: str):
         """
         Execute a navigation sequence from config.
@@ -173,6 +242,10 @@ class PyTivoAutomation:
                 # param is the text to wait for
                 if not self.wait_for_log_message(param):
                     print(f"Warning: Continuing despite timeout")
+            elif button_name == 'LOCATE_SHARE':
+                # param is the share name to find
+                if not self.locate_share(param):
+                    print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'DELETE_SOURCE_FILE':
                 # Extract filename from last "Done sending" log message and delete it
                 log_path = self.get_log_file_path()
@@ -611,9 +684,16 @@ class PyTivoAutomation:
         print("  bottom     - Jump to bottom of list")
         print("  search <text> - Keyboard search")
         print("  pos <n>    - Select video at position n")
-        print("  exec <name> - Execute custom sequence from config file")
+        print("  list       - List available sequences from config")
         print("  reload     - Reload navigation config file")
         print("  q          - Quit")
+        
+        # Show available sequences from config
+        if self.nav_sequences:
+            print("\nSequences from config:")
+            for seq_name in sorted(self.nav_sequences.keys()):
+                print(f"  {seq_name}")
+        
         print("=" * 60)
         
         while True:
@@ -635,26 +715,10 @@ class PyTivoAutomation:
                 self.nav.go_home()
             elif cmd == 'm':
                 self.nav.go_to_my_shows()
-            elif cmd == 'devices':
-                self.go_to_devices()
-            elif cmd == 'import':
-                self.go_to_import()
-            elif cmd == 'import-wait':
-                self.go_to_import()
-                print("\nWaiting for transfer to start and complete...")
-                success, filename = self.monitor_transfer(timeout_minutes=30, remove_after=False)
-                if success:
-                    print("\n✓ Transfer completed successfully!")
-                    if filename:
-                        print(f"  File: {filename}")
-                else:
-                    print("\n✗ Transfer monitoring timed out or failed")
-            elif cmd == 'import-wait-remove':
-                # Execute the sequence from config which includes WAIT_FOR and DELETE_SOURCE_FILE
-                if not self.execute_sequence('import-wait-remove'):
-                    print("✗ Sequence not found or failed")
-                else:
-                    print("\n✓ Transfer and cleanup completed!")
+            elif cmd in self.nav_sequences:
+                # Execute sequence from config file
+                if not self.execute_sequence(cmd):
+                    print(f"✗ Failed to execute sequence: {cmd}")
             elif cmd == 'b':
                 self.remote.press(TiVoButton.LEFT)  # Back is often LEFT
             elif cmd == 'p':
@@ -676,11 +740,14 @@ class PyTivoAutomation:
                     self.select_video_by_position(pos)
                 except ValueError:
                     print("Invalid position number")
-            elif cmd.startswith('exec '):
-                # Execute custom sequence from config
-                seq_name = cmd[5:].strip()
-                if not self.execute_sequence(seq_name):
-                    print(f"Sequence '{seq_name}' not found")
+            elif cmd == 'list':
+                # List available sequences
+                if self.nav_sequences:
+                    print("\nAvailable sequences:")
+                    for seq_name in sorted(self.nav_sequences.keys()):
+                        print(f"  {seq_name}")
+                else:
+                    print("No sequences loaded from config")
             elif cmd == 'reload':
                 # Reload navigation config
                 self.nav_sequences = self.load_navigation_config()
