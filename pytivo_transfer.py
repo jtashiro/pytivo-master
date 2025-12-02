@@ -351,10 +351,10 @@ class PyTivoAutomation:
             self.remote.press(TiVoButton.SELECT, delay=2.5)
             log_pos = check_for_transfers(log_pos)
             
-            if not filename:
-                print("✓ Queued")
+            if filename:
+                print(f"    ✓ Queued: {filename}")
             else:
-                print(f"    ✓ Queued")
+                print("✓ Queued")
             
             transferred += 1
             
@@ -422,10 +422,11 @@ class PyTivoAutomation:
                             filename = match.group(1)
                             if filename not in started_files:
                                 started_files.append(filename)
+                                # Show correct count for started files
                                 print(f"  [{len(started_files)}/{expected_count}] Started: {filename}")
                     
-                    # Track Done sending
-                    elif 'Done sending' in line:
+                    # Track Done sending (check separately, not elif)
+                    if 'Done sending' in line:
                         match = re.search(r'Done sending "([^"]+)"', line)
                         if match:
                             filename = match.group(1)
@@ -870,10 +871,10 @@ class PyTivoAutomation:
         if os.path.isabs(filename) and os.path.exists(filename):
             try:
                 os.remove(filename)
-                print(f"✓ Successfully deleted: {filename}")
+                print(f"  ✓ Deleted: {filename}")
                 return True
             except Exception as e:
-                print(f"Error deleting file: {e}")
+                print(f"  ✗ Error deleting file: {e}")
                 return False
         
         # Otherwise, need config to find the file
