@@ -299,7 +299,7 @@ class PyTivoAutomation:
             sys.stdout.flush()
             
             # Press SELECT to enter item details
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             
             # Get filename from log - look for GET request with File= parameter
             filename = None
@@ -331,10 +331,10 @@ class PyTivoAutomation:
             sys.stdout.flush()
             
             # Move DOWN to transfer option
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
             
             # Press SELECT to queue transfer
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             
             print(f"    ✓ Queued")
             sys.stdout.flush()
@@ -342,10 +342,10 @@ class PyTivoAutomation:
             transferred += 1
             
             # Go back to list with LEFT
-            self.remote.press(TiVoButton.LEFT, delay=0.5)
+            self.remote.press(TiVoButton.LEFT, delay=2.5)
             
             # Move DOWN to next item
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
