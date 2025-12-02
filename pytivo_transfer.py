@@ -322,14 +322,22 @@ class PyTivoAutomation:
             log_pos = check_for_transfers(log_pos)
             
             # Check log for TVBusQuery or AnchorItem to get filename
+            # Scan more aggressively - look back further in the log
             filename = None
-            timeout = time.time() + 3
+            timeout = time.time() + 5  # Increased timeout
+            scan_back_lines = 50  # Look back this many lines
+            
             while time.time() < timeout and not filename:
                 try:
                     with open(log_path, 'r') as f:
-                        f.seek(log_pos)
-                        new_lines = f.readlines()
+                        # Seek back to read more context
+                        current_pos = log_pos
+                        f.seek(max(0, log_pos - (scan_back_lines * 200)))  # Approximate 200 bytes/line
+                        all_lines = f.readlines()
                         log_pos = f.tell()
+                    
+                    # Process lines (most recent last)
+                    new_lines = all_lines
                     
                     for line in new_lines:
                         # Check for Start sending and Done sending
@@ -471,15 +479,25 @@ class PyTivoAutomation:
         started_files = already_started.copy() if already_started else []
         completed_files = []
         
-        # Scan from start_pos to current end for any "Done sending" messages
-        # that occurred during queueing but weren't captured
+        # Scan from start_pos to current end for any messages that occurred
+        # during queueing but weren't captured
         try:
             with open(log_path, 'r') as f:
                 f.seek(start_pos)
                 existing_lines = f.readlines()
                 current_pos = f.tell()
             
+            # Process all log entries to get current state
             for line in existing_lines:
+                # Track Start sending
+                if 'Start sending' in line:
+                    match = re.search(r'Start sending "([^"]+)"', line)
+                    if match:
+                        filename = match.group(1)
+                        if filename not in started_files:
+                            started_files.append(filename)
+                
+                # Track Done sending  
                 if 'Done sending' in line:
                     match = re.search(r'Done sending "([^"]+)"', line)
                     if match:
@@ -490,6 +508,7 @@ class PyTivoAutomation:
             # Update start position to current
             start_pos = current_pos
         except Exception as e:
+            print(f"Warning: Error scanning log history: {e}")
             pass
         
         # Report already-completed files
