@@ -238,7 +238,7 @@ class PyTivoAutomation:
             print(f"Warning: Cannot monitor log file for transfers")
             return 0
         
-        print(f"Transferring {max_items} items in list...")
+        print(f"Transferring all items in list...")
         transferred = 0
         
         for item_num in range(max_items):
@@ -257,7 +257,7 @@ class PyTivoAutomation:
             self.remote.press(TiVoButton.DOWN, delay=0.5)
             # Press SELECT to start transfer
             print(f"    SELECT (second press - start transfer)")
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=1.5)
             
             # Wait for "Start sending" in log
             print(f"    Waiting for transfer to start...")
@@ -280,7 +280,7 @@ class PyTivoAutomation:
                     if found_start:
                         break
                     
-                    time.sleep(0.3)
+                    time.sleep(1.5)
                 except Exception as e:
                     print(f"    Error reading log: {e}")
                     break
@@ -292,11 +292,11 @@ class PyTivoAutomation:
             
             # Go back to list with LEFT
             print(f"    LEFT (back to list)")
-            self.remote.press(TiVoButton.LEFT, delay=1.5)
+            self.remote.press(TiVoButton.LEFT, delay=0.5)
             
             # Move DOWN to next item
             print(f"    DOWN (next item)")
-            self.remote.press(TiVoButton.DOWN, delay=1.5)
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
         
         print(f"\n✓ Transferred {transferred} items")
         return transferred
