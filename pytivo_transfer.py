@@ -339,6 +339,33 @@ class PyTivoAutomation:
         else:
             print(f"Transferring all items in list (max {max_items})...")
         
+        # Wait for all files in share to be stable before starting
+        config_path = self.get_pytivo_config_path()
+        if config_path:
+            try:
+                with open(config_path, 'r') as f:
+                    lines = f.readlines()
+                
+                # Find all share sections and check their paths
+                for i, line in enumerate(lines):
+                    stripped = line.strip()
+                    if stripped.startswith('[') and stripped.endswith(']'):
+                        section = stripped[1:-1]
+                        if section not in ['_tivo_SD', '_tivo_HD', 'Server']:
+                            # Look for path in this section
+                            for j in range(i+1, len(lines)):
+                                check_line = lines[j].strip()
+                                if check_line.startswith('['):
+                                    break
+                                if check_line.lower().startswith('path'):
+                                    match = re.search(r'path\s*=\s*(.+)', check_line, re.IGNORECASE)
+                                    if match:
+                                        share_path = match.group(1).strip()
+                                        self.wait_for_stable_files(share_path, timeout=120)
+                                    break
+            except Exception as e:
+                print(f"Note: Could not check file stability: {e}")
+        
         transferred = 0
         self.transfer_list = []  # Reset transfer list
         
