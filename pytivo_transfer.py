@@ -32,6 +32,7 @@ class PyTivoAutomation:
         """
         self.remote = TiVoRemote(tivo_host)
         self.nav = TiVoNavigator(self.remote)
+        self.transfer_list = []  # Track files with status: [{filename, status}, ...]
         
         # Find navigation config file
         if nav_config is None:
@@ -263,7 +264,7 @@ class PyTivoAutomation:
     def transfer_all_items(self, max_items: int = 50, expected_count: int = None):
         """
         Transfer all items in current share list.
-        Loops through items, pressing SELECT twice on each, waiting for transfer to start.
+        Loops through items, pressing SELECT twice on each, queuing transfers.
         
         Args:
             max_items: Maximum number of items to transfer (fallback)
@@ -286,123 +287,54 @@ class PyTivoAutomation:
             print(f"Transferring all items in list (max {max_items})...")
         
         transferred = 0
-        transfer_list = []
-        started_transfers = []
+        self.transfer_list = []  # Reset transfer list
         
-        # Helper function to check for new transfers in log
-        def check_for_transfers(start_pos):
-            """Check log for 'Start sending' messages and report them."""
-            try:
-                with open(log_path, 'r') as f:
-                    f.seek(start_pos)
-                    new_lines = f.readlines()
-                    new_pos = f.tell()
-                
-                for line in new_lines:
-                    if 'Start sending' in line:
-                        match = re.search(r'Start sending "([^"]+)"', line)
-                        if match:
-                            started_file = match.group(1)
-                            if started_file not in started_transfers:
-                                started_transfers.append(started_file)
-                                print(f"\n    → Transfer started: {started_file}")
-                
-                return new_pos
-            except Exception as e:
-                return start_pos
-        
-        # Get initial log position
+        # Get initial log position BEFORE any SELECT presses
         with open(log_path, 'r') as f:
             f.seek(0, 2)
-            log_pos = f.tell()
+            initial_log_pos = f.tell()
         
         for item_num in range(items_to_transfer):
-            # Press SELECT to enter item details
-            self.remote.press(TiVoButton.SELECT, delay=2.5)
-            log_pos = check_for_transfers(log_pos)
-            
-            # Check log for TVBusQuery or AnchorItem to get filename
-            # Scan more aggressively - look back further in the log
-            filename = None
-            timeout = time.time() + 5  # Increased timeout
-            scan_back_lines = 50  # Look back this many lines
-            
-            while time.time() < timeout and not filename:
-                try:
-                    with open(log_path, 'r') as f:
-                        # Seek back to read more context
-                        current_pos = log_pos
-                        f.seek(max(0, log_pos - (scan_back_lines * 200)))  # Approximate 200 bytes/line
-                        all_lines = f.readlines()
-                        log_pos = f.tell()
-                    
-                    # Process lines (most recent last)
-                    new_lines = all_lines
-                    
-                    for line in new_lines:
-                        # Check for Start sending and Done sending
-                        if 'Start sending' in line:
-                            match = re.search(r'Start sending "([^"]+)"', line)
-                            if match:
-                                started_file = match.group(1)
-                                if started_file not in started_transfers:
-                                    started_transfers.append(started_file)
-                                    print(f"\n    → Transfer started: {started_file}")
-                                    sys.stdout.flush()
-                        
-                        if 'Done sending' in line:
-                            match = re.search(r'Done sending "([^"]+)"', line)
-                            if match:
-                                done_file = match.group(1)
-                                print(f"\n    → Transfer completed: {done_file}")
-                                sys.stdout.flush()
-                        
-                        # Look for TVBusQuery which has the filename
-                        if 'TVBusQuery' in line and 'File=' in line:
-                            # Extract: File=%2FFilename.mkv
-                            match = re.search(r'File=([^&\s]+)', line)
-                            if match:
-                                encoded = match.group(1)
-                                # URL decode and extract just the filename
-                                import urllib.parse
-                                decoded = urllib.parse.unquote(encoded)
-                                # Remove leading slash and get filename
-                                filename = decoded.lstrip('/').split('/')[-1]
-                                break
-                        
-                        # Fallback to AnchorItem if TVBusQuery not found
-                        if not filename and 'AnchorItem=' in line:
-                            match = re.search(r'AnchorItem=([^&\s]+)', line)
-                            if match:
-                                encoded = match.group(1)
-                                import urllib.parse
-                                decoded = urllib.parse.unquote(encoded)
-                                filename = decoded.split('/')[-1]
-                                break
-                    
-                    if filename:
-                        break
-                    time.sleep(0.2)
-                except Exception as e:
-                    break
-            
-            # Display item number
             print(f"  Item {item_num + 1}: ", end="")
+            sys.stdout.flush()
+            
+            # Press SELECT to enter item details
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            
+            # Get filename from log - look for GET request with File= parameter
+            filename = None
+            import urllib.parse
+            try:
+                time.sleep(0.5)  # Let log entry appear
+                with open(log_path, 'r') as f:
+                    f.seek(initial_log_pos)
+                    new_lines = f.readlines()
+                
+                # Look backwards from most recent for File= parameter in GET request
+                for line in reversed(new_lines):
+                    if 'GET' in line and 'File=' in line:
+                        match = re.search(r'File=([^&\s]+)', line)
+                        if match:
+                            encoded = match.group(1)
+                            decoded = urllib.parse.unquote(encoded)
+                            filename = decoded.lstrip('/').split('/')[-1]
+                            break
+            except Exception as e:
+                pass
+            
             if filename:
                 print(f"{filename}")
-                transfer_list.append(filename)
-                sys.stdout.flush()
+                self.transfer_list.append({'filename': filename, 'status': 'queued'})
             else:
                 print("(filename not detected)")
-                sys.stdout.flush()
+                self.transfer_list.append({'filename': f'Item {item_num + 1}', 'status': 'queued'})
+            sys.stdout.flush()
             
             # Move DOWN to transfer option
-            self.remote.press(TiVoButton.DOWN, delay=2.5)
-            log_pos = check_for_transfers(log_pos)
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
             
             # Press SELECT to queue transfer
-            self.remote.press(TiVoButton.SELECT, delay=2.5)
-            log_pos = check_for_transfers(log_pos)
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
             
             print(f"    ✓ Queued")
             sys.stdout.flush()
@@ -410,38 +342,29 @@ class PyTivoAutomation:
             transferred += 1
             
             # Go back to list with LEFT
-            self.remote.press(TiVoButton.LEFT, delay=2.5)
-            log_pos = check_for_transfers(log_pos)
+            self.remote.press(TiVoButton.LEFT, delay=0.5)
             
             # Move DOWN to next item
-            self.remote.press(TiVoButton.DOWN, delay=2.5)
-            log_pos = check_for_transfers(log_pos)
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
         print(f"{'=' * 60}")
         print(f"Total items queued: {transferred}")
-        if transfer_list:
-            print(f"\nQueued files:")
-            for idx, item in enumerate(transfer_list, 1):
-                # Check if this file already started
-                status = " (transfer started)" if item in started_transfers else " (queued)"
-                print(f"  {idx}. {item}{status}")
+        print(f"\nFiles to transfer:")
+        for idx, item in enumerate(self.transfer_list, 1):
+            print(f"  {idx}. {item['filename']} [{item['status']}]")
         
-        if started_transfers:
-            print(f"\nAlready started during queueing: {len(started_transfers)}/{transferred}")
-        
-        print(f"\nTiVo will pull remaining items sequentially from the queue.")
+        print(f"\nTiVo will pull items sequentially from the queue.")
         print(f"{'=' * 60}\n")
-        sys.stdout.flush()  # Ensure output is visible before monitoring starts
+        sys.stdout.flush()
         
-        # Return count, log position, list of queued files, and already-started files
-        return (transferred, log_pos, transfer_list, started_transfers)
+        return transferred
     
-    def monitor_all_transfers(self, expected_count: int, start_log_pos: int = None, already_started: list = None, timeout_minutes: int = 120):
+    def monitor_all_transfers(self, expected_count: int, timeout_minutes: int = 120):
         """
         Monitor log for all transfers to complete.
-        Tracks 'Start sending' and 'Done sending' messages.
+        Updates self.transfer_list status as files complete.
         
         Args:
             expected_count: Number of transfers to monitor
@@ -465,37 +388,13 @@ class PyTivoAutomation:
         print(f"Watching pyTivo log: {log_path}\n")
         sys.stdout.flush()
         
-        # Use provided log position or get current position
-        if start_log_pos is not None:
-            start_pos = start_log_pos
-        else:
-            with open(log_path, 'r') as f:
-                f.seek(0, 2)
-                start_pos = f.tell()
+        # Get current log position to start monitoring from NOW (don't look backwards)
+        with open(log_path, 'r') as f:
+            f.seek(0, 2)
+            start_pos = f.tell()
         
         start_time = time.time()
-        
-        # Initialize with already-started files
-        started_files = already_started.copy() if already_started else []
-        completed_files = []
-        
-        # Scan from start_pos to current end for any messages that occurred
-        # during queueing but weren't captured
-        try:
-            with open(log_path, 'r') as f:
-                f.seek(start_pos)
-                existing_lines = f.readlines()
-                current_pos = f.tell()
-            
-            # Process all log entries to get current state
-            for line in existing_lines:
-                # Track Start sending
-                if 'Start sending' in line:
-                    match = re.search(r'Start sending "([^"]+)"', line)
-                    if match:
-                        filename = match.group(1)
-                        if filename not in started_files:
-                            started_files.append(filename)
+        completed_count = 0
                 
                 # Track Done sending  
                 if 'Done sending' in line:
@@ -511,24 +410,7 @@ class PyTivoAutomation:
             print(f"Warning: Error scanning log history: {e}")
             pass
         
-        # Report already-completed files
-        if completed_files:
-            for idx, filename in enumerate(completed_files, 1):
-                print(f"  [{idx}/{expected_count}] ✓ Already completed: {filename}")
-            sys.stdout.flush()
-        
-        # Report in-progress file (only one can be active at a time)
-        in_progress = None
-        if started_files:
-            # Last started file that hasn't completed is the one in progress
-            for filename in reversed(started_files):
-                if filename not in completed_files:
-                    in_progress = filename
-                    idx = len(completed_files) + 1
-                    print(f"  [{idx}/{expected_count}] In progress: {filename}")
-                    sys.stdout.flush()
-                    break
-        
+        # Monitor for Done sending messages and update transfer_list
         while (time.time() - start_time) < (timeout_minutes * 60):
             try:
                 with open(log_path, 'r') as f:
@@ -539,33 +421,35 @@ class PyTivoAutomation:
                 for line in new_lines:
                     line = line.strip()
                     
-                    # Track Start sending
-                    if 'Start sending' in line:
-                        match = re.search(r'Start sending "([^"]+)"', line)
-                        if match:
-                            filename = match.group(1)
-                            if filename not in started_files:
-                                started_files.append(filename)
-                                # Show correct count for started files
-                                print(f"  [{len(started_files)}/{expected_count}] Started: {filename}")
-                                sys.stdout.flush()
-                    
-                    # Track Done sending (check separately, not elif)
+                    # Track Done sending
                     if 'Done sending' in line:
                         match = re.search(r'Done sending "([^"]+)"', line)
                         if match:
-                            filename = match.group(1)
-                            if filename not in completed_files:
-                                completed_files.append(filename)
-                                elapsed = int(time.time() - start_time)
-                                print(f"  [{len(completed_files)}/{expected_count}] ✓ Completed: {filename} (elapsed: {elapsed}s)")
-                                sys.stdout.flush()
+                            full_path = match.group(1)
+                            completed_filename = os.path.basename(full_path)
+                            
+                            # Find and update in transfer_list
+                            for item in self.transfer_list:
+                                if item['status'] != 'completed' and completed_filename in item['filename']:
+                                    item['status'] = 'completed'
+                                    completed_count += 1
+                                    
+                                    # Extract elapsed time if present
+                                    elapsed_match = re.search(r'\((\d+)s\)', line)
+                                    elapsed = elapsed_match.group(1) if elapsed_match else "?"
+                                    print(f"  [{completed_count}/{expected_count}] ✓ Completed: {item['filename']} (elapsed: {elapsed}s)")
+                                    sys.stdout.flush()
+                                    break
                 
                 # Check if all expected transfers are complete
-                if len(completed_files) >= expected_count:
+                if completed_count >= expected_count:
                     total_elapsed = int(time.time() - start_time)
                     print(f"\n✓ All {expected_count} transfers completed in {total_elapsed}s")
-                    return completed_files
+                    print(f"\nFinal status:")
+                    for idx, item in enumerate(self.transfer_list, 1):
+                        print(f"  {idx}. {item['filename']} [{item['status']}]")
+                    sys.stdout.flush()
+                    return [item['filename'] for item in self.transfer_list if item['status'] == 'completed']
                 
                 time.sleep(1)
                 
@@ -573,8 +457,8 @@ class PyTivoAutomation:
                 print(f"Error reading log: {e}")
                 time.sleep(1)
         
-        print(f"\n✗ Timeout: {len(completed_files)}/{expected_count} transfers completed")
-        return completed_files
+        print(f"\n✗ Timeout: {completed_count}/{expected_count} transfers completed")
+        return [item['filename'] for item in self.transfer_list if item['status'] == 'completed']
     
     def execute_sequence(self, command_name: str):
         """
@@ -613,25 +497,7 @@ class PyTivoAutomation:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
                 # Transfer all items in current list, using file_count if available
-                result = self.transfer_all_items(expected_count=file_count)
-                
-                # Unpack result (count, log_position, queued_files, started_files)
-                if isinstance(result, tuple):
-                    if len(result) == 4:
-                        transferred_count, log_start_pos, queued_files, already_started = result
-                    elif len(result) == 2:
-                        # Old format compatibility
-                        transferred_count, log_start_pos = result
-                        already_started = []
-                    else:
-                        transferred_count = result[0]
-                        log_start_pos = None
-                        already_started = []
-                else:
-                    # Backward compatibility
-                    transferred_count = result
-                    log_start_pos = None
-                    already_started = []
+                transferred_count = self.transfer_all_items(expected_count=file_count)
                 
                 # Check if next command is DELETE_SOURCE_FILE
                 if idx + 1 < len(sequence) and sequence[idx + 1][0] == 'DELETE_SOURCE_FILE':
@@ -639,11 +505,7 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    completed_files = self.monitor_all_transfers(
-                        transferred_count, 
-                        start_log_pos=log_start_pos,
-                        already_started=already_started
-                    )
+                    completed_files = self.monitor_all_transfers(transferred_count)
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:
@@ -1203,13 +1065,16 @@ Note: Automated mode is fragile and may need customization for your menu layout.
     
     args = parser.parse_args()
     
+    # Print banner FIRST before any other output
     print("=" * 60)
     print("pyTivo Transfer Automation")
     print("=" * 60)
-    print(f"\nTiVo: {args.tivo_ip}")
+    print()
     sys.stdout.flush()
     
     automation = PyTivoAutomation(args.tivo_ip)
+    
+    print(f"TiVo: {args.tivo_ip}")
     
     if not automation.connect():
         print("\n✗ Failed to connect to TiVo!")
