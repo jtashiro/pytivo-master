@@ -395,20 +395,6 @@ class PyTivoAutomation:
         
         start_time = time.time()
         completed_count = 0
-                
-                # Track Done sending  
-                if 'Done sending' in line:
-                    match = re.search(r'Done sending "([^"]+)"', line)
-                    if match:
-                        filename = match.group(1)
-                        if filename not in completed_files:
-                            completed_files.append(filename)
-            
-            # Update start position to current
-            start_pos = current_pos
-        except Exception as e:
-            print(f"Warning: Error scanning log history: {e}")
-            pass
         
         # Monitor for Done sending messages and update transfer_list
         while (time.time() - start_time) < (timeout_minutes * 60):
