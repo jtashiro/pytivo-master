@@ -269,20 +269,20 @@ class PyTivoAutomation:
             print(f"  Item {item_num + 1}: ", end="")
             
             # Press SELECT to enter item details
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             # Move DOWN to transfer option
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
             # Press SELECT to queue transfer
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=2.5)
             print("✓ Queued")
             
             transferred += 1
             
             # Go back to list with LEFT
-            self.remote.press(TiVoButton.LEFT, delay=0.5)
+            self.remote.press(TiVoButton.LEFT, delay=2.5)
             
             # Move DOWN to next item
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=2.5)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
