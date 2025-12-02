@@ -51,12 +51,17 @@ fi
 
 log "Found $file_count file(s) in $WATCH_DIR"
 log "Starting transfer to TiVo ($TIVO_IP) using sequence: $SEQUENCE"
+log "========================================"
 
 # Run transfer (pytivo_transfer.py is in /usr/local/bin/)
-/usr/local/bin/pytivo_transfer.py "$TIVO_IP" "$SEQUENCE" >> "$LOG_FILE" 2>&1
+# Use unbuffered output to ensure real-time logging
+python3 -u /usr/local/bin/pytivo_transfer.py "$TIVO_IP" "$SEQUENCE" 2>&1 | while IFS= read -r line; do
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $line" >> "$LOG_FILE"
+done
 
-exit_code=$?
+exit_code=${PIPESTATUS[0]}
 
+log "========================================"
 if [ $exit_code -eq 0 ]; then
     log "Transfer completed successfully"
 else

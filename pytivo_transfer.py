@@ -399,6 +399,7 @@ class PyTivoAutomation:
                 print(f"  {idx}. {item}")
         print(f"\nTiVo will pull items sequentially from the queue.")
         print(f"{'=' * 60}\n")
+        sys.stdout.flush()  # Ensure output is visible before monitoring starts
         
         return transferred
     
@@ -415,8 +416,14 @@ class PyTivoAutomation:
             List of transferred filenames in order of completion
         """
         log_path = self.get_log_file_path()
-        if not log_path or not os.path.exists(log_path):
-            print(f"Warning: Cannot monitor log file")
+        if not log_path:
+            print(f"ERROR: Cannot find pyTivo log file path")
+            print(f"Make sure pyTivo is running and check config")
+            return []
+        
+        if not os.path.exists(log_path):
+            print(f"ERROR: Log file does not exist: {log_path}")
+            print(f"Make sure pyTivo is running")
             return []
         
         print(f"Monitoring transfers (expecting {expected_count} files)...")
