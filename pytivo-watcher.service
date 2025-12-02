@@ -1,0 +1,31 @@
+[Unit]
+Description=PyTivo Watcher Service
+After=network.target
+
+[Service]
+Type=simple
+User=jtashiro
+Group=jtashiro
+WorkingDirectory=/usr/local/bin
+
+# Environment variables
+Environment="TIVO_IP=192.168.1.185"
+Environment="WATCH_DIR=/mnt/cloud/pytivo-watcher"
+Environment="CHECK_INTERVAL=300"
+Environment="MIN_FILE_AGE=60"
+Environment="SEQUENCE_NAME=watcher"
+
+# Service command
+ExecStart=/usr/bin/python3 /usr/local/bin/pytivo_watcher_service.py
+
+# Restart policy
+Restart=on-failure
+RestartSec=30
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=pytivo-watcher
+
+[Install]
+WantedBy=multi-user.target
