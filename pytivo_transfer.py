@@ -164,17 +164,19 @@ class PyTivoAutomation:
         Performs DOWN+SELECT, checks log for Container query matching share name,
         backs out with LEFT if wrong, repeats until found.
         
+        Also extracts the file count from "Found X files" log message.
+        
         Args:
             share_name: Share name to search for (will match against Container= in log)
             max_attempts: Maximum number of shares to try
         
         Returns:
-            True if share found, False if not found after max attempts
+            Tuple of (found: bool, file_count: int or None)
         """
         log_path = self.get_log_file_path()
         if not log_path or not os.path.exists(log_path):
             print(f"Warning: Cannot monitor log file for share location")
-            return False
+            return (False, None)
         
         print(f"Locating share containing: '{share_name}'")
         
@@ -191,8 +193,9 @@ class PyTivoAutomation:
             print(f"    SELECT (entering share)")
             self.remote.press(TiVoButton.SELECT, delay=1.5)
             
-            # Check log for Container query with our share name
+            # Check log for Container query with our share name and file count
             found = False
+            file_count = None
             timeout = time.time() + 3  # 3 second timeout per attempt
             
             while time.time() < timeout:
@@ -206,8 +209,20 @@ class PyTivoAutomation:
                         if 'QueryContainer' in line and 'Container=' in line:
                             # Extract container name from URL-encoded or regular format
                             if share_name in line or share_name.replace(' ', '%20') in line:
-                                print(f"✓ Found share: {share_name}")
-                                return True
+                                found = True
+                        
+                        # Look for: Found X files, total=Y
+                        if found and 'Found' in line and 'files' in line:
+                            match = re.search(r'Found (\d+) files', line)
+                            if match:
+                                file_count = int(match.group(1))
+                                print(f"✓ Found share: {share_name} ({file_count} files)")
+                                return (True, file_count)
+                    
+                    if found and file_count is None:
+                        # Found container but no file count yet, keep waiting
+                        time.sleep(0.2)
+                        continue
                     
                     time.sleep(0.2)
                 except Exception as e:
@@ -220,15 +235,16 @@ class PyTivoAutomation:
             # Continue to next iteration which will do DOWN + SELECT again
         
         print(f"✗ Share '{share_name}' not found after {max_attempts} attempts")
-        return False
+        return (False, None)
     
-    def transfer_all_items(self, max_items: int = 50):
+    def transfer_all_items(self, max_items: int = 50, expected_count: int = None):
         """
         Transfer all items in current share list.
         Loops through items, pressing SELECT twice on each, waiting for transfer to start.
         
         Args:
-            max_items: Maximum number of items to transfer
+            max_items: Maximum number of items to transfer (fallback)
+            expected_count: Expected number of files from log (if known)
         
         Returns:
             Number of items transferred
@@ -238,11 +254,18 @@ class PyTivoAutomation:
             print(f"Warning: Cannot monitor log file for transfers")
             return 0
         
-        print(f"Transferring all items in list...")
+        # Use expected count if provided, otherwise use max_items
+        items_to_transfer = expected_count if expected_count else max_items
+        
+        if expected_count:
+            print(f"Transferring {expected_count} items from share...")
+        else:
+            print(f"Transferring all items in list (max {max_items})...")
+        
         transferred = 0
         transfer_list = []
         
-        for item_num in range(max_items):
+        for item_num in range(items_to_transfer):
             print(f"\n  Item {item_num + 1}:")
             
             # Get current log position
@@ -336,6 +359,9 @@ class PyTivoAutomation:
         sequence = self.nav_sequences[command_name]
         print(f"Executing sequence: {command_name}")
         
+        # Track file count from LOCATE_SHARE for use with TRANSFER_ALL
+        file_count = None
+        
         for button_name, param in sequence:
             # Handle special commands
             if button_name == 'WAIT_FOR':
@@ -344,11 +370,12 @@ class PyTivoAutomation:
                     print(f"Warning: Continuing despite timeout")
             elif button_name == 'LOCATE_SHARE':
                 # param is the share name to find
-                if not self.locate_share(param):
+                found, file_count = self.locate_share(param)
+                if not found:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
-                # Transfer all items in current list
-                self.transfer_all_items()
+                # Transfer all items in current list, using file_count if available
+                self.transfer_all_items(expected_count=file_count)
             elif button_name == 'DELETE_SOURCE_FILE':
                 # Extract filename from last "Done sending" log message and delete it
                 log_path = self.get_log_file_path()
