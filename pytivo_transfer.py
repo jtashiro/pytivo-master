@@ -182,6 +182,40 @@ class PyTivoAutomation:
         print(f"✗ Timeout waiting for: {search_text}")
         return False
     
+    def wait_for_stable_files(self, share_path, timeout=60):
+        """Wait for all files in directory to have stable sizes."""
+        if not os.path.exists(share_path):
+            return True
+        
+        print(f"Checking if files are stable (not being copied)...")
+        start_time = time.time()
+        
+        while (time.time() - start_time) < timeout:
+            try:
+                files = [f for f in os.listdir(share_path) 
+                        if f.lower().endswith(('.mkv', '.mp4', '.avi', '.mpg', '.mpeg', '.ts'))]
+                if not files:
+                    return True
+                
+                sizes1 = {f: os.path.getsize(os.path.join(share_path, f)) for f in files}
+                time.sleep(2)
+                sizes2 = {f: os.path.getsize(os.path.join(share_path, f)) for f in files}
+                
+                all_stable = all(sizes1.get(f) == sizes2.get(f) for f in files)
+                if all_stable:
+                    print(f"  ✓ All files stable")
+                    return True
+                
+                for f in files:
+                    if sizes1.get(f) != sizes2.get(f):
+                        print(f"  Waiting for {f} to finish copying...")
+                        break
+            except Exception as e:
+                return True
+        
+        print(f"  ⚠ Timeout waiting for stable files, proceeding anyway")
+        return False
+    
     def locate_share(self, share_name: str, max_attempts: int = 20):
         """
         Navigate through shares until the correct one is found by monitoring log.
@@ -197,6 +231,25 @@ class PyTivoAutomation:
         Returns:
             Tuple of (found: bool, file_count: int or None)
         """
+        # Wait for files to be stable before navigating
+        config_path = self.get_pytivo_config_path()
+        if config_path:
+            try:
+                with open(config_path, 'r') as f:
+                    in_section = False
+                    for line in f:
+                        stripped = line.strip()
+                        if stripped.startswith('['):
+                            section = stripped[1:-1]
+                            in_section = share_name.lower() in section.lower()
+                        elif in_section and stripped.lower().startswith('path'):
+                            match = re.search(r'path\s*=\s*(.+)', stripped, re.IGNORECASE)
+                            if match:
+                                self.wait_for_stable_files(match.group(1).strip())
+                                break
+            except:
+                pass
+        
         log_path = self.get_log_file_path()
         if not log_path or not os.path.exists(log_path):
             print(f"Warning: Cannot monitor log file for share location")
@@ -298,6 +351,11 @@ class PyTivoAutomation:
             print(f"  Item {item_num + 1}: ", end="")
             sys.stdout.flush()
             
+            # Get current log position before this item
+            with open(log_path, 'r') as f:
+                f.seek(0, 2)
+                item_log_pos = f.tell()
+            
             # Press SELECT to enter item details
             self.remote.press(TiVoButton.SELECT, delay=2.5)
             
@@ -323,8 +381,18 @@ class PyTivoAutomation:
                 pass
             
             if filename:
-                print(f"{filename}")
-                self.transfer_list.append({'filename': filename, 'status': 'queued'})
+                # Check for duplicate
+                is_duplicate = any(item['filename'] == filename for item in self.transfer_list)
+                if is_duplicate:
+                    print(f"{filename} (DUPLICATE - skipping)")
+                    sys.stdout.flush()
+                    # Skip this item - press LEFT twice to back out and move to next
+                    self.remote.press(TiVoButton.LEFT, delay=0.5)
+                    self.remote.press(TiVoButton.DOWN, delay=0.5)
+                    continue
+                else:
+                    print(f"{filename}")
+                    self.transfer_list.append({'filename': filename, 'status': 'queued'})
             else:
                 print("(filename not detected)")
                 self.transfer_list.append({'filename': f'Item {item_num + 1}', 'status': 'queued'})
@@ -332,6 +400,20 @@ class PyTivoAutomation:
             
             # Move DOWN to transfer option
             self.remote.press(TiVoButton.DOWN, delay=2.5)
+            
+            # Check for Start sending before SELECT
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(item_log_pos)
+                    check_lines = f.readlines()
+                for line in check_lines:
+                    if 'Start sending' in line:
+                        match = re.search(r'Start sending "([^"]+)"', line)
+                        if match:
+                            print(f"    → Transfer started: {os.path.basename(match.group(1))}")
+                            sys.stdout.flush()
+            except:
+                pass
             
             # Press SELECT to queue transfer
             self.remote.press(TiVoButton.SELECT, delay=2.5)
@@ -343,6 +425,20 @@ class PyTivoAutomation:
             
             # Go back to list with LEFT
             self.remote.press(TiVoButton.LEFT, delay=2.5)
+            
+            # Check for Start sending after LEFT
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(item_log_pos)
+                    check_lines = f.readlines()
+                for line in check_lines:
+                    if 'Start sending' in line:
+                        match = re.search(r'Start sending "([^"]+)"', line)
+                        if match:
+                            print(f"    → Transfer started: {os.path.basename(match.group(1))}")
+                            sys.stdout.flush()
+            except:
+                pass
             
             # Move DOWN to next item
             self.remote.press(TiVoButton.DOWN, delay=2.5)
@@ -450,7 +546,7 @@ class PyTivoAutomation:
         
         start_time = time.time()
         
-        # Monitor for Done sending messages and update transfer_list
+        # Monitor for Start sending and Done sending messages and update transfer_list
         while (time.time() - start_time) < (timeout_minutes * 60):
             try:
                 with open(log_path, 'r') as f:
@@ -460,6 +556,21 @@ class PyTivoAutomation:
                 
                 for line in new_lines:
                     line = line.strip()
+                    
+                    # Track Start sending
+                    if 'Start sending' in line:
+                        match = re.search(r'Start sending "([^"]+)"', line)
+                        if match:
+                            full_path = match.group(1)
+                            started_filename = os.path.basename(full_path)
+                            
+                            # Find in transfer_list and update status
+                            for item in self.transfer_list:
+                                if item['status'] not in ['in-progress', 'completed'] and started_filename in item['filename']:
+                                    item['status'] = 'in-progress'
+                                    print(f"  → Transfer started: {item['filename']}")
+                                    sys.stdout.flush()
+                                    break
                     
                     # Track Done sending
                     if 'Done sending' in line:
