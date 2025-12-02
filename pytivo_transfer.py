@@ -240,6 +240,7 @@ class PyTivoAutomation:
         
         print(f"Transferring all items in list...")
         transferred = 0
+        transfer_list = []
         
         for item_num in range(max_items):
             print(f"\n  Item {item_num + 1}:")
@@ -251,10 +252,10 @@ class PyTivoAutomation:
             
             # Press SELECT to enter item details
             print(f"    SELECT (first press - enter details)")
-            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            self.remote.press(TiVoButton.SELECT, delay=1.5)
             # Move DOWN to transfer option
             print(f"    DOWN (to transfer option)")
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=1.5)
             # Press SELECT to start transfer
             print(f"    SELECT (second press - start transfer)")
             self.remote.press(TiVoButton.SELECT, delay=1.5)
@@ -262,6 +263,7 @@ class PyTivoAutomation:
             # Wait for "Start sending" in log
             print(f"    Waiting for transfer to start...")
             found_start = False
+            filename = None
             timeout = time.time() + 10  # 10 second timeout
             
             while time.time() < timeout:
@@ -272,9 +274,15 @@ class PyTivoAutomation:
                     
                     for line in new_lines:
                         if 'Start sending' in line:
+                            # Extract filename from log
+                            match = re.search(r'Start sending "([^"]+)"', line)
+                            if match:
+                                filename = match.group(1)
                             print(f"    ✓ Transfer started")
                             found_start = True
                             transferred += 1
+                            if filename:
+                                transfer_list.append(filename)
                             break
                     
                     if found_start:
@@ -292,13 +300,21 @@ class PyTivoAutomation:
             
             # Go back to list with LEFT
             print(f"    LEFT (back to list)")
-            self.remote.press(TiVoButton.LEFT, delay=0.5)
+            self.remote.press(TiVoButton.LEFT, delay=1.5)
             
             # Move DOWN to next item
             print(f"    DOWN (next item)")
-            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            self.remote.press(TiVoButton.DOWN, delay=1.5)
         
-        print(f"\n✓ Transferred {transferred} items")
+        print(f"\n{'=' * 60}")
+        print(f"TRANSFER SUMMARY")
+        print(f"{'=' * 60}")
+        print(f"Total items queued: {transferred}\n")
+        if transfer_list:
+            for idx, item in enumerate(transfer_list, 1):
+                print(f"  {idx}. {item}")
+        print(f"{'=' * 60}\n")
+        
         return transferred
     
     def execute_sequence(self, command_name: str):
