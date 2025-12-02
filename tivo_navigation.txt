@@ -77,7 +77,7 @@ LEFT 0.5
 TIVO 0.5
 
 [watcher]
-# Navigate to Import, wait for transfer to complete, then remove file and go back
+# Navigate to Import, locate Watcher share, and transfer all items
 TIVO 0.5
 SELECT 0.5
 LEFT 0.5
@@ -85,11 +85,5 @@ BOTTOM 0.5
 RIGHT 0.5
 LOCATE_SHARE "Watcher"
 TRANSFER_ALL
-SELECT 0.5
-WAIT_FOR "Start sending"
-LEFT 1
-WAIT_FOR "Done sending"
-DELETE_SOURCE_FILE
-LEFT 0.5
 TIVO 0.5
 
