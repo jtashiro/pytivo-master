@@ -471,11 +471,44 @@ class PyTivoAutomation:
         started_files = already_started.copy() if already_started else []
         completed_files = []
         
-        # Report already-started files
-        if started_files:
-            for idx, filename in enumerate(started_files, 1):
-                print(f"  [{idx}/{expected_count}] Already started: {filename}")
+        # Scan from start_pos to current end for any "Done sending" messages
+        # that occurred during queueing but weren't captured
+        try:
+            with open(log_path, 'r') as f:
+                f.seek(start_pos)
+                existing_lines = f.readlines()
+                current_pos = f.tell()
+            
+            for line in existing_lines:
+                if 'Done sending' in line:
+                    match = re.search(r'Done sending "([^"]+)"', line)
+                    if match:
+                        filename = match.group(1)
+                        if filename not in completed_files:
+                            completed_files.append(filename)
+            
+            # Update start position to current
+            start_pos = current_pos
+        except Exception as e:
+            pass
+        
+        # Report already-completed files
+        if completed_files:
+            for idx, filename in enumerate(completed_files, 1):
+                print(f"  [{idx}/{expected_count}] ✓ Already completed: {filename}")
             sys.stdout.flush()
+        
+        # Report in-progress file (only one can be active at a time)
+        in_progress = None
+        if started_files:
+            # Last started file that hasn't completed is the one in progress
+            for filename in reversed(started_files):
+                if filename not in completed_files:
+                    in_progress = filename
+                    idx = len(completed_files) + 1
+                    print(f"  [{idx}/{expected_count}] In progress: {filename}")
+                    sys.stdout.flush()
+                    break
         
         while (time.time() - start_time) < (timeout_minutes * 60):
             try:
