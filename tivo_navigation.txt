@@ -24,6 +24,8 @@
 #   LOCATE_SHARE "text" - Navigate through shares until log shows Container matching text
 #                         Presses DOWN+SELECT, monitors log, backs out with LEFT if wrong
 #                         Example: LOCATE_SHARE "Watcher"
+#   TRANSFER_ALL - Loop through all items in current list, pressing SELECT twice on each
+#                  Waits for "Start sending" before moving to next item
 #
 # Delay is in seconds (can be decimal like 0.5)
 # Lines starting with # are comments
@@ -82,6 +84,7 @@ LEFT 0.5
 BOTTOM 0.5
 RIGHT 0.5
 LOCATE_SHARE "Watcher"
+TRANSFER_ALL
 SELECT 0.5
 WAIT_FOR "Start sending"
 LEFT 1

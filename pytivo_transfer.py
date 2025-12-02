@@ -87,6 +87,8 @@ class PyTivoAutomation:
                             current_sequence.append(('LOCATE_SHARE', share_text))
                         else:
                             print(f"Warning: Invalid LOCATE_SHARE syntax in line: {line}")
+                    elif line.upper().strip() == 'TRANSFER_ALL':
+                        current_sequence.append(('TRANSFER_ALL', None))
                     elif line.upper().strip() == 'DELETE_SOURCE_FILE':
                         current_sequence.append(('DELETE_SOURCE_FILE', None))
                     else:
@@ -220,6 +222,81 @@ class PyTivoAutomation:
         print(f"✗ Share '{share_name}' not found after {max_attempts} attempts")
         return False
     
+    def transfer_all_items(self, max_items: int = 50):
+        """
+        Transfer all items in current share list.
+        Loops through items, pressing SELECT twice on each, waiting for transfer to start.
+        
+        Args:
+            max_items: Maximum number of items to transfer
+        
+        Returns:
+            Number of items transferred
+        """
+        log_path = self.get_log_file_path()
+        if not log_path or not os.path.exists(log_path):
+            print(f"Warning: Cannot monitor log file for transfers")
+            return 0
+        
+        print(f"Transferring all items in list...")
+        transferred = 0
+        
+        for item_num in range(max_items):
+            print(f"\n  Item {item_num + 1}:")
+            
+            # Get current log position
+            with open(log_path, 'r') as f:
+                f.seek(0, 2)
+                start_pos = f.tell()
+            
+            # Press SELECT twice to start transfer
+            print(f"    SELECT (first press)")
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            print(f"    SELECT (second press - start transfer)")
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            
+            # Wait for "Start sending" in log
+            print(f"    Waiting for transfer to start...")
+            found_start = False
+            timeout = time.time() + 10  # 10 second timeout
+            
+            while time.time() < timeout:
+                try:
+                    with open(log_path, 'r') as f:
+                        f.seek(start_pos)
+                        new_lines = f.readlines()
+                    
+                    for line in new_lines:
+                        if 'Start sending' in line:
+                            print(f"    ✓ Transfer started")
+                            found_start = True
+                            transferred += 1
+                            break
+                    
+                    if found_start:
+                        break
+                    
+                    time.sleep(0.3)
+                except Exception as e:
+                    print(f"    Error reading log: {e}")
+                    break
+            
+            if not found_start:
+                # No transfer started - might be end of list
+                print(f"    No transfer detected - assuming end of list")
+                break
+            
+            # Go back to list with LEFT
+            print(f"    LEFT (back to list)")
+            self.remote.press(TiVoButton.LEFT, delay=0.5)
+            
+            # Move DOWN to next item
+            print(f"    DOWN (next item)")
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
+        
+        print(f"\n✓ Transferred {transferred} items")
+        return transferred
+    
     def execute_sequence(self, command_name: str):
         """
         Execute a navigation sequence from config.
@@ -249,6 +326,9 @@ class PyTivoAutomation:
                 # param is the share name to find
                 if not self.locate_share(param):
                     print(f"Warning: Could not locate share '{param}'")
+            elif button_name == 'TRANSFER_ALL':
+                # Transfer all items in current list
+                self.transfer_all_items()
             elif button_name == 'DELETE_SOURCE_FILE':
                 # Extract filename from last "Done sending" log message and delete it
                 log_path = self.get_log_file_path()
