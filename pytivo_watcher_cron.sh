@@ -41,8 +41,8 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# Check if watch directory has files
-file_count=$(find "$WATCH_DIR" -maxdepth 1 -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.m4v" \) | wc -l)
+# Check if watch directory has files (including symlinks)
+file_count=$(find "$WATCH_DIR" -maxdepth 1 \( -type f -o -type l \) \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.m4v" \) | wc -l)
 
 if [ "$file_count" -eq 0 ]; then
     log "No files in watch directory, exiting"
