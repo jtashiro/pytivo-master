@@ -359,15 +359,17 @@ class PyTivoAutomation:
         print(f"{'=' * 60}\n")
         sys.stdout.flush()
         
-        return transferred
+        # Return count and initial log position so monitoring can check for completions during queueing
+        return (transferred, initial_log_pos)
     
-    def monitor_all_transfers(self, expected_count: int, timeout_minutes: int = 120):
+    def monitor_all_transfers(self, expected_count: int, queueing_start_pos: int = None, timeout_minutes: int = 120):
         """
         Monitor log for all transfers to complete.
         Updates self.transfer_list status as files complete.
         
         Args:
             expected_count: Number of transfers to monitor
+            queueing_start_pos: Log position from start of queueing (to catch early completions)
             timeout_minutes: Maximum time to wait
         
         Returns:
@@ -388,13 +390,43 @@ class PyTivoAutomation:
         print(f"Watching pyTivo log: {log_path}\n")
         sys.stdout.flush()
         
-        # Get current log position to start monitoring from NOW (don't look backwards)
+        # Check for completions that happened during queueing
+        completed_count = 0
+        if queueing_start_pos is not None:
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(queueing_start_pos)
+                    historical_lines = f.readlines()
+                
+                # Scan for Done sending messages that occurred during queueing
+                for line in historical_lines:
+                    if 'Done sending' in line:
+                        match = re.search(r'Done sending "([^"]+)"', line)
+                        if match:
+                            full_path = match.group(1)
+                            completed_filename = os.path.basename(full_path)
+                            
+                            # Find and update in transfer_list
+                            for item in self.transfer_list:
+                                if item['status'] != 'completed' and completed_filename in item['filename']:
+                                    item['status'] = 'completed'
+                                    completed_count += 1
+                                    
+                                    # Extract elapsed time if present
+                                    elapsed_match = re.search(r'\((\d+)s\)', line)
+                                    elapsed = elapsed_match.group(1) if elapsed_match else "?"
+                                    print(f"  [{completed_count}/{expected_count}] ✓ Completed: {item['filename']} (elapsed: {elapsed}s)")
+                                    sys.stdout.flush()
+                                    break
+            except Exception as e:
+                print(f"Warning: Error checking for early completions: {e}")
+        
+        # Get current log position to continue monitoring from NOW
         with open(log_path, 'r') as f:
             f.seek(0, 2)
             start_pos = f.tell()
         
         start_time = time.time()
-        completed_count = 0
         
         # Monitor for Done sending messages and update transfer_list
         while (time.time() - start_time) < (timeout_minutes * 60):
@@ -483,7 +515,14 @@ class PyTivoAutomation:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
                 # Transfer all items in current list, using file_count if available
-                transferred_count = self.transfer_all_items(expected_count=file_count)
+                result = self.transfer_all_items(expected_count=file_count)
+                
+                # Unpack result
+                if isinstance(result, tuple):
+                    transferred_count, queueing_start_pos = result
+                else:
+                    transferred_count = result
+                    queueing_start_pos = None
                 
                 # Check if next command is DELETE_SOURCE_FILE
                 if idx + 1 < len(sequence) and sequence[idx + 1][0] == 'DELETE_SOURCE_FILE':
@@ -491,7 +530,7 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    completed_files = self.monitor_all_transfers(transferred_count)
+                    completed_files = self.monitor_all_transfers(transferred_count, queueing_start_pos)
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:
