@@ -192,6 +192,12 @@ def getDebug():
     except:
         return False
 
+def getAppendHostname():
+    try:
+        return config.getboolean('Server', 'append_hostname')
+    except:
+        return False
+
 def getOptres(tsn=None):
     try:
         return config.getboolean('_tivo_' + tsn, 'optres')

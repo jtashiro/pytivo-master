@@ -2,6 +2,7 @@ import logging
 import re
 import socket
 import struct
+import subprocess
 import time
 import uuid
 from threading import Timer
@@ -54,11 +55,24 @@ class ZCBroadcast:
                         'platform': platform, 'protocol': 'http',
                         'tsn': '{%s}' % uuid.uuid4()}
                 tt = ct.split('/')[1]
+                
+                # Append hostname to share name if configured
                 title = section
+                if config.getAppendHostname():
+                    try:
+                        hostname = subprocess.check_output(['hostname', '-s'], text=True).strip()
+                    except:
+                        hostname = socket.gethostname().split('.')[0]
+                    title = '%s (%s)' % (section, hostname)
+                    logger.info('Appending hostname to share: %s -> %s' % (section, title))
+                
                 count = 1
                 while title in old_titles:
                     count += 1
-                    title = '%s [%d]' % (section, count)
+                    if config.getAppendHostname():
+                        title = '%s (%s) [%d]' % (section, hostname, count)
+                    else:
+                        title = '%s [%d]' % (section, count)
                     self.renamed[section] = title
                 info = zeroconf.ServiceInfo('_%s._tcp.local.' % tt,
                     '%s._%s._tcp.local.' % (title, tt),
