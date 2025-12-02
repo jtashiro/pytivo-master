@@ -359,12 +359,15 @@ class PyTivoAutomation:
                 except Exception as e:
                     break
             
-            # Display with filename if found
+            # Display item number
+            print(f"  Item {item_num + 1}: ", end="")
             if filename:
-                print(f"  Item {item_num + 1}: {filename}")
+                print(f"{filename}")
                 transfer_list.append(filename)
+                sys.stdout.flush()
             else:
-                print(f"  Item {item_num + 1}: ", end="")
+                print("(filename not detected)")
+                sys.stdout.flush()
             
             # Move DOWN to transfer option
             self.remote.press(TiVoButton.DOWN, delay=2.5)
@@ -374,10 +377,8 @@ class PyTivoAutomation:
             self.remote.press(TiVoButton.SELECT, delay=2.5)
             log_pos = check_for_transfers(log_pos)
             
-            if filename:
-                print(f"    ✓ Queued: {filename}")
-            else:
-                print("✓ Queued")
+            print(f"    ✓ Queued")
+            sys.stdout.flush()
             
             transferred += 1
             
@@ -396,15 +397,21 @@ class PyTivoAutomation:
         if transfer_list:
             print(f"\nQueued files:")
             for idx, item in enumerate(transfer_list, 1):
-                print(f"  {idx}. {item}")
-        print(f"\nTiVo will pull items sequentially from the queue.")
+                # Check if this file already started
+                status = " (transfer started)" if item in started_transfers else " (queued)"
+                print(f"  {idx}. {item}{status}")
+        
+        if started_transfers:
+            print(f"\nAlready started during queueing: {len(started_transfers)}/{transferred}")
+        
+        print(f"\nTiVo will pull remaining items sequentially from the queue.")
         print(f"{'=' * 60}\n")
         sys.stdout.flush()  # Ensure output is visible before monitoring starts
         
-        # Return both count and the initial log position for monitoring
-        return (transferred, log_pos)
+        # Return count, log position, list of queued files, and already-started files
+        return (transferred, log_pos, transfer_list, started_transfers)
     
-    def monitor_all_transfers(self, expected_count: int, start_log_pos: int = None, timeout_minutes: int = 120):
+    def monitor_all_transfers(self, expected_count: int, start_log_pos: int = None, already_started: list = None, timeout_minutes: int = 120):
         """
         Monitor log for all transfers to complete.
         Tracks 'Start sending' and 'Done sending' messages.
@@ -440,8 +447,16 @@ class PyTivoAutomation:
                 start_pos = f.tell()
         
         start_time = time.time()
-        started_files = []
+        
+        # Initialize with already-started files
+        started_files = already_started.copy() if already_started else []
         completed_files = []
+        
+        # Report already-started files
+        if started_files:
+            for idx, filename in enumerate(started_files, 1):
+                print(f"  [{idx}/{expected_count}] Already started: {filename}")
+            sys.stdout.flush()
         
         while (time.time() - start_time) < (timeout_minutes * 60):
             try:
@@ -529,13 +544,23 @@ class PyTivoAutomation:
                 # Transfer all items in current list, using file_count if available
                 result = self.transfer_all_items(expected_count=file_count)
                 
-                # Unpack result (count, log_position)
+                # Unpack result (count, log_position, queued_files, started_files)
                 if isinstance(result, tuple):
-                    transferred_count, log_start_pos = result
+                    if len(result) == 4:
+                        transferred_count, log_start_pos, queued_files, already_started = result
+                    elif len(result) == 2:
+                        # Old format compatibility
+                        transferred_count, log_start_pos = result
+                        already_started = []
+                    else:
+                        transferred_count = result[0]
+                        log_start_pos = None
+                        already_started = []
                 else:
                     # Backward compatibility
                     transferred_count = result
                     log_start_pos = None
+                    already_started = []
                 
                 # Check if next command is DELETE_SOURCE_FILE
                 if idx + 1 < len(sequence) and sequence[idx + 1][0] == 'DELETE_SOURCE_FILE':
@@ -543,7 +568,11 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    completed_files = self.monitor_all_transfers(transferred_count, start_log_pos=log_start_pos)
+                    completed_files = self.monitor_all_transfers(
+                        transferred_count, 
+                        start_log_pos=log_start_pos,
+                        already_started=already_started
+                    )
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:
