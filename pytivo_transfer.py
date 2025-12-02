@@ -183,7 +183,7 @@ class PyTivoAutomation:
         return False
     
     def wait_for_stable_files(self, share_path, timeout=60):
-        """Wait for all files in directory to have stable sizes."""
+        """Wait for all files in directory to have stable sizes. Handles symlinks."""
         if not os.path.exists(share_path):
             return True
         
@@ -192,16 +192,40 @@ class PyTivoAutomation:
         
         while (time.time() - start_time) < timeout:
             try:
-                files = [f for f in os.listdir(share_path) 
-                        if f.lower().endswith(('.mkv', '.mp4', '.avi', '.mpg', '.mpeg', '.ts'))]
+                # Get all video files (including symlinks)
+                all_entries = os.listdir(share_path)
+                files = []
+                for f in all_entries:
+                    full_path = os.path.join(share_path, f)
+                    # Include file if it's a video, whether regular file or symlink
+                    if os.path.isfile(full_path) or os.path.islink(full_path):
+                        if f.lower().endswith(('.mkv', '.mp4', '.avi', '.mpg', '.mpeg', '.ts')):
+                            files.append(f)
+                
                 if not files:
                     return True
                 
-                sizes1 = {f: os.path.getsize(os.path.join(share_path, f)) for f in files}
-                time.sleep(2)
-                sizes2 = {f: os.path.getsize(os.path.join(share_path, f)) for f in files}
+                # For symlinks, check the target file size; for regular files, check directly
+                sizes1 = {}
+                for f in files:
+                    try:
+                        full_path = os.path.join(share_path, f)
+                        # os.path.getsize follows symlinks automatically
+                        sizes1[f] = os.path.getsize(full_path)
+                    except:
+                        pass
                 
-                all_stable = all(sizes1.get(f) == sizes2.get(f) for f in files)
+                time.sleep(2)
+                
+                sizes2 = {}
+                for f in files:
+                    try:
+                        full_path = os.path.join(share_path, f)
+                        sizes2[f] = os.path.getsize(full_path)
+                    except:
+                        pass
+                
+                all_stable = all(sizes1.get(f) == sizes2.get(f) for f in files if f in sizes1 and f in sizes2)
                 if all_stable:
                     print(f"  ✓ All files stable")
                     return True
@@ -211,6 +235,7 @@ class PyTivoAutomation:
                         print(f"  Waiting for {f} to finish copying...")
                         break
             except Exception as e:
+                print(f"  Note: {e}")
                 return True
         
         print(f"  ⚠ Timeout waiting for stable files, proceeding anyway")
