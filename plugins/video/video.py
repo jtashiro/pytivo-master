@@ -359,7 +359,15 @@ class Video(Plugin):
         t.crc = zlib.crc32
         t.guid = config.getGUID()
         t.tivos = config.tivos
-        handler.send_xml(str(t))
+        # Python 3: Ensure template output is string
+        try:
+            output = str(t)
+        except TypeError:
+            # If str() fails, try getting the response directly
+            output = t.respond()
+            if isinstance(output, bytes):
+                output = output.decode('utf-8')
+        handler.send_xml(output)
 
     def use_ts(self, tsn, file_path):
         if config.is_ts_capable(tsn):
