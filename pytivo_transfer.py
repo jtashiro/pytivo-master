@@ -266,79 +266,102 @@ class PyTivoAutomation:
         transfer_list = []
         
         for item_num in range(items_to_transfer):
-            print(f"\n  Item {item_num + 1}:")
-            
-            # Get current log position
-            with open(log_path, 'r') as f:
-                f.seek(0, 2)
-                start_pos = f.tell()
+            print(f"  Item {item_num + 1}: ", end="")
             
             # Press SELECT to enter item details
-            print(f"    SELECT (first press - enter details)")
-            self.remote.press(TiVoButton.SELECT, delay=2.5)
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
             # Move DOWN to transfer option
-            print(f"    DOWN (to transfer option)")
-            self.remote.press(TiVoButton.DOWN, delay=2.5)
-            # Press SELECT to start transfer
-            print(f"    SELECT (second press - start transfer)")
-            self.remote.press(TiVoButton.SELECT, delay=2.5)
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
+            # Press SELECT to queue transfer
+            self.remote.press(TiVoButton.SELECT, delay=0.5)
+            print("✓ Queued")
             
-            # Wait for "Start sending" in log
-            print(f"    Waiting for transfer to start...")
-            found_start = False
-            filename = None
-            timeout = time.time() + 10  # 10 second timeout
-            
-            while time.time() < timeout:
-                try:
-                    with open(log_path, 'r') as f:
-                        f.seek(start_pos)
-                        new_lines = f.readlines()
-                    
-                    for line in new_lines:
-                        if 'Start sending' in line:
-                            # Extract filename from log
-                            match = re.search(r'Start sending "([^"]+)"', line)
-                            if match:
-                                filename = match.group(1)
-                            print(f"    ✓ Transfer started")
-                            found_start = True
-                            transferred += 1
-                            if filename:
-                                transfer_list.append(filename)
-                            break
-                    
-                    if found_start:
-                        break
-                    
-                    time.sleep(2.5)
-                except Exception as e:
-                    print(f"    Error reading log: {e}")
-                    break
-            
-            if not found_start:
-                # No transfer started - might be end of list
-                print(f"    No transfer detected - assuming end of list")
-                break
+            transferred += 1
             
             # Go back to list with LEFT
-            print(f"    LEFT (back to list)")
-            self.remote.press(TiVoButton.LEFT, delay=2.5)
+            self.remote.press(TiVoButton.LEFT, delay=0.5)
             
             # Move DOWN to next item
-            print(f"    DOWN (next item)")
-            self.remote.press(TiVoButton.DOWN, delay=2.5)
+            self.remote.press(TiVoButton.DOWN, delay=0.5)
         
         print(f"\n{'=' * 60}")
         print(f"TRANSFER SUMMARY")
         print(f"{'=' * 60}")
-        print(f"Total items queued: {transferred}\n")
-        if transfer_list:
-            for idx, item in enumerate(transfer_list, 1):
-                print(f"  {idx}. {item}")
+        print(f"Total items queued: {transferred}")
+        print(f"\nTiVo will pull items sequentially from the queue.")
         print(f"{'=' * 60}\n")
         
         return transferred
+    
+    def monitor_all_transfers(self, expected_count: int, timeout_minutes: int = 120):
+        """
+        Monitor log for all transfers to complete.
+        Tracks 'Start sending' and 'Done sending' messages.
+        
+        Args:
+            expected_count: Number of transfers to monitor
+            timeout_minutes: Maximum time to wait
+        
+        Returns:
+            List of transferred filenames in order of completion
+        """
+        log_path = self.get_log_file_path()
+        if not log_path or not os.path.exists(log_path):
+            print(f"Warning: Cannot monitor log file")
+            return []
+        
+        print(f"Monitoring transfers (expecting {expected_count} files)...")
+        
+        # Get current log position
+        with open(log_path, 'r') as f:
+            f.seek(0, 2)
+            start_pos = f.tell()
+        
+        start_time = time.time()
+        started_files = []
+        completed_files = []
+        
+        while (time.time() - start_time) < (timeout_minutes * 60):
+            try:
+                with open(log_path, 'r') as f:
+                    f.seek(start_pos)
+                    new_lines = f.readlines()
+                    start_pos = f.tell()
+                
+                for line in new_lines:
+                    # Track Start sending
+                    if 'Start sending' in line:
+                        match = re.search(r'Start sending "([^"]+)"', line)
+                        if match:
+                            filename = match.group(1)
+                            if filename not in started_files:
+                                started_files.append(filename)
+                                print(f"  [{len(started_files)}/{expected_count}] Started: {filename}")
+                    
+                    # Track Done sending
+                    elif 'Done sending' in line:
+                        match = re.search(r'Done sending "([^"]+)"', line)
+                        if match:
+                            filename = match.group(1)
+                            if filename not in completed_files:
+                                completed_files.append(filename)
+                                elapsed = int(time.time() - start_time)
+                                print(f"  [{len(completed_files)}/{expected_count}] ✓ Completed: {filename} (elapsed: {elapsed}s)")
+                
+                # Check if all expected transfers are complete
+                if len(completed_files) >= expected_count:
+                    total_elapsed = int(time.time() - start_time)
+                    print(f"\n✓ All {expected_count} transfers completed in {total_elapsed}s")
+                    return completed_files
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                print(f"Error reading log: {e}")
+                time.sleep(1)
+        
+        print(f"\n✗ Timeout: {len(completed_files)}/{expected_count} transfers completed")
+        return completed_files
     
     def execute_sequence(self, command_name: str):
         """
@@ -361,8 +384,10 @@ class PyTivoAutomation:
         
         # Track file count from LOCATE_SHARE for use with TRANSFER_ALL
         file_count = None
+        transferred_count = 0
+        should_delete = False
         
-        for button_name, param in sequence:
+        for idx, (button_name, param) in enumerate(sequence):
             # Handle special commands
             if button_name == 'WAIT_FOR':
                 # param is the text to wait for
@@ -375,26 +400,48 @@ class PyTivoAutomation:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
                 # Transfer all items in current list, using file_count if available
-                self.transfer_all_items(expected_count=file_count)
+                transferred_count = self.transfer_all_items(expected_count=file_count)
+                
+                # Check if next command is DELETE_SOURCE_FILE
+                if idx + 1 < len(sequence) and sequence[idx + 1][0] == 'DELETE_SOURCE_FILE':
+                    should_delete = True
+                
+                # Monitor all transfers if we have a count
+                if transferred_count > 0:
+                    completed_files = self.monitor_all_transfers(transferred_count)
+                    
+                    # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
+                    if should_delete and completed_files:
+                        print(f"\n{'=' * 60}")
+                        print(f"DELETING TRANSFERRED FILES")
+                        print(f"{'=' * 60}")
+                        for filename in completed_files:
+                            print(f"  Deleting: {filename}")
+                            self.remove_file(filename)
+                        print(f"{'=' * 60}\n")
             elif button_name == 'DELETE_SOURCE_FILE':
-                # Extract filename from last "Done sending" log message and delete it
-                log_path = self.get_log_file_path()
-                if log_path and os.path.exists(log_path):
-                    try:
-                        with open(log_path, 'r') as f:
-                            lines = f.readlines()
-                            for line in reversed(lines[-100:]):
-                                if 'Done sending' in line:
-                                    match = re.search(r'Done sending "([^"]+)"', line)
-                                    if match:
-                                        filename = match.group(1)
-                                        print(f"Deleting transferred file: {filename}")
-                                        self.remove_file(filename)
-                                        break
-                    except Exception as e:
-                        print(f"Error deleting source file: {e}")
-                else:
-                    print("Warning: Cannot delete file - log not accessible")
+                # Skip if already handled after TRANSFER_ALL
+                if not should_delete:
+                    # Extract filename from last "Done sending" log message and delete it
+                    log_path = self.get_log_file_path()
+                    if log_path and os.path.exists(log_path):
+                        try:
+                            with open(log_path, 'r') as f:
+                                lines = f.readlines()
+                                for line in reversed(lines[-100:]):
+                                    if 'Done sending' in line:
+                                        match = re.search(r'Done sending "([^"]+)"', line)
+                                        if match:
+                                            filename = match.group(1)
+                                            print(f"Deleting transferred file: {filename}")
+                                            self.remove_file(filename)
+                                            break
+                        except Exception as e:
+                            print(f"Error deleting source file: {e}")
+                    else:
+                        print("Warning: Cannot delete file - log not accessible")
+                # Reset flag
+                should_delete = False
             elif button_name == 'TOP':
                 self.nav.jump_to_top()
             elif button_name == 'BOTTOM':
