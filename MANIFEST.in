@@ -1,0 +1,12 @@
+include README
+include pyTivo.conf.dist
+include LICENSE
+recursive-include src/pytivo/content *.css
+recursive-include src/pytivo/templates *.tmpl
+recursive-include src/pytivo/plugins */templates/*.tmpl
+recursive-include src/pytivo/plugins/settings/content *.css *.js
+include src/pytivo/plugins/settings/help.txt
+global-exclude *.pyc
+global-exclude __pycache__
+global-exclude .DS_Store
+global-exclude *.git*

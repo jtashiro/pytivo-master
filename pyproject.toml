@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyTivo"
+version = "1.0.0"
+description = "TiVo HMO and GoBack server"
+readme = "README"
+requires-python = ">=3.6"
+license = {text = "GPL-2.0"}
+authors = [
+    {name = "pyTivo Contributors"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: GNU General Public License v2 (GPLv2)",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Multimedia :: Video",
+]
+
+[project.urls]
+Homepage = "https://github.com/wmcbrine/pytivo"
+
+[project.scripts]
+pytivo = "pytivo.pyTivo:main"
+pytivo-service = "pytivo.pyTivoService:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+zip-safe = false
+
+[tool.setuptools.packages.find]
+where = ["src"]
