@@ -58,3 +58,5 @@ venv.bak/
 # pyTivo specific
 pyTivo.conf.local
 *.log
+pyTivo.conf
+*.conf
