@@ -417,9 +417,9 @@ class PyTivoAutomation:
                             if match:
                                 transferred_file = match.group(1)
                         
-                        # Remove from config if requested
+                        # Remove file if requested
                         if remove_after and transferred_file:
-                            self.remove_file_from_config(transferred_file)
+                            self.remove_file(transferred_file)
                         
                         return (True, transferred_file)
                     
@@ -440,19 +440,13 @@ class PyTivoAutomation:
         print(f"\n✗ Timeout after {timeout_minutes} minutes")
         return (False, None)
     
-    def remove_file_from_config(self, filename):
+    def remove_file(self, filename):
         """
         Delete the transferred file from the filesystem.
-        Finds the file path in [tivo-importer] section and deletes it.
         
         Args:
             filename: Full path or basename of the file to remove
         """
-        config_path = self.get_pytivo_config_path()
-        if not config_path:
-            print(f"Cannot find file - config not found")
-            return False
-        
         print(f"\nDeleting file from filesystem...")
         
         # If filename is already a full path and exists, delete it directly
@@ -465,7 +459,12 @@ class PyTivoAutomation:
                 print(f"Error deleting file: {e}")
                 return False
         
-        # Otherwise, search config for the file
+        # Otherwise, need config to find the file
+        config_path = self.get_pytivo_config_path()
+        if not config_path:
+            print(f"Cannot find file - config not found")
+            return False
+        
         try:
             with open(config_path, 'r') as f:
                 lines = f.readlines()
