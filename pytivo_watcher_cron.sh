@@ -57,14 +57,15 @@ cleanup() {
 trap cleanup EXIT
 
 # Check if watch directory has files (including symlinks)
+log "Checking watch directory: $WATCH_DIR"
 file_count=$(find "$WATCH_DIR" -maxdepth 1 \( -type f -o -type l \) \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" -o -iname "*.m4v" \) | wc -l)
 
 if [ "$file_count" -eq 0 ]; then
-    log "No files in watch directory, exiting"
+    log "No files in $WATCH_DIR, exiting"
     exit 0
 fi
 
-log "Found $file_count file(s) in $WATCH_DIR"
+log "Found $file_count file(s)"
 log "Starting transfer to TiVo ($TIVO_IP) using sequence: $SEQUENCE"
 log "========================================"
 
