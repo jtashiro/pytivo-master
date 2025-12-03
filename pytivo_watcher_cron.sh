@@ -5,10 +5,26 @@
 #   */5 * * * * /usr/local/bin/pytivo_watcher_cron.sh
 #
 
-# Load environment variables from .profile (for SMTP_* variables)
+# Load environment variables from .profile and .bash_aliases (for SMTP_* variables)
+# Debug: Check SMTP_SERVER before sourcing
+# echo "DEBUG: SMTP_SERVER before sourcing: $SMTP_SERVER"
+
 if [ -f "$HOME/.profile" ]; then
     source "$HOME/.profile"
 fi
+
+# Don't source .bash_aliases separately if .profile already sources it
+# if [ -f "$HOME/.bash_aliases" ]; then
+#     source "$HOME/.bash_aliases"
+# fi
+
+# Also try .bashrc as fallback
+if [ -f "$HOME/.bashrc" ]; then
+    source "$HOME/.bashrc"
+fi
+
+# Debug: Check SMTP_SERVER after sourcing
+# echo "DEBUG: SMTP_SERVER after sourcing: $SMTP_SERVER"
 
 # Configuration
 TIVO_IP="${TIVO_IP:-192.168.1.185}"
@@ -32,13 +48,30 @@ fi
 export SHARE_NAME
 
 # Email Configuration (optional - for transfer notifications)
-# Set these in $HOME/.profile or uncomment here to enable email notifications:
-# export SMTP_SERVER="localhost"                       # SMTP server
-# export SMTP_PORT="25"                                # SMTP port
-# export SMTP_USER=""                                  # SMTP username (if auth required)
-# export SMTP_PASS=""                                  # SMTP password (if auth required)
-export TO_EMAIL="jtashiro@fiospace.com"              # Required for emails
-export FROM_EMAIL="no-reply@fiospace.com"                 # Sender address
+# Set these in $HOME/.profile or $HOME/.bash_aliases with 'export' (or set -a)
+# Example in .bash_aliases:
+#   set -a
+#   SMTP_SERVER="smtp.gmail.com"
+#   SMTP_PORT="587"
+#   SMTP_USER="your.email@gmail.com"
+#   SMTP_PASS="your-app-password"
+#   FROM_EMAIL="your.email@gmail.com"
+#   TO_EMAIL="recipient@example.com"
+#   set +a
+#
+# Set defaults only if not already set from environment:
+: ${TO_EMAIL:=jtashiro@fiospace.com}
+: ${FROM_EMAIL:=no-reply@fiospace.com}
+: ${SMTP_SERVER:=localhost}
+: ${SMTP_PORT:=25}
+
+# Ensure they are exported for pytivo_transfer.py
+export TO_EMAIL
+export FROM_EMAIL
+export SMTP_SERVER
+export SMTP_PORT
+export SMTP_USER
+export SMTP_PASS
 
 
 # Ensure log directory exists
@@ -48,6 +81,9 @@ mkdir -p "$(dirname "$LOG_FILE")"
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
+
+# Debug: Log email configuration
+log "Email Config: SMTP_SERVER=$SMTP_SERVER SMTP_PORT=$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
 
 # Check for lock file (prevent concurrent runs)
 if [ -f "$LOCK_FILE" ]; then
