@@ -15,6 +15,10 @@ import argparse
 import subprocess
 import re
 import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 from tivo_remote import TiVoRemote, TiVoButton, TiVoNavigator
 
 
@@ -33,6 +37,9 @@ class PyTivoAutomation:
         self.remote = TiVoRemote(tivo_host)
         self.nav = TiVoNavigator(self.remote)
         self.transfer_list = []  # Track files with status: [{filename, status}, ...]
+        self.tivo_host = tivo_host
+        self.transfer_start_time = None
+        self.transfer_end_time = None
         
         # Find navigation config file
         if nav_config is None:
@@ -708,6 +715,8 @@ class PyTivoAutomation:
                     print(f"Warning: Could not locate share '{param}'")
             elif button_name == 'TRANSFER_ALL':
                 # Transfer all items in current list, using file_count if available
+                self.transfer_start_time = time.time()
+                
                 result = self.transfer_all_items(expected_count=file_count)
                 
                 # Unpack result
@@ -723,7 +732,17 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    completed_files = self.monitor_all_transfers(transferred_count, queueing_start_pos)
+                    try:
+                        completed_files = self.monitor_all_transfers(transferred_count, queueing_start_pos)
+                        self.transfer_end_time = time.time()
+                        
+                        # Send success email
+                        self.send_email_notification(success=True)
+                    except Exception as e:
+                        self.transfer_end_time = time.time()
+                        # Send failure email
+                        self.send_email_notification(success=False, error_message=str(e))
+                        raise
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:
@@ -1163,6 +1182,174 @@ class PyTivoAutomation:
         except Exception as e:
             print(f"  ✗ Error deleting file: {e}")
             return False
+    
+    def send_email_notification(self, success: bool, error_message: str = None):
+        """
+        Send HTML email notification about transfer results.
+        
+        Args:
+            success: True if transfers completed, False if failed
+            error_message: Optional error message for failures
+        """
+        # Get email configuration from environment variables
+        smtp_server = os.environ.get('SMTP_SERVER', 'localhost')
+        smtp_port = int(os.environ.get('SMTP_PORT', '25'))
+        smtp_user = os.environ.get('SMTP_USER')
+        smtp_pass = os.environ.get('SMTP_PASS')
+        from_email = os.environ.get('FROM_EMAIL', 'pytivo@localhost')
+        to_email = os.environ.get('TO_EMAIL')
+        
+        if not to_email:
+            print("Note: TO_EMAIL not set, skipping email notification")
+            return
+        
+        # Calculate duration
+        duration = ""
+        if self.transfer_start_time and self.transfer_end_time:
+            elapsed = int(self.transfer_end_time - self.transfer_start_time)
+            minutes, seconds = divmod(elapsed, 60)
+            hours, minutes = divmod(minutes, 60)
+            if hours > 0:
+                duration = f"{hours}h {minutes}m {seconds}s"
+            elif minutes > 0:
+                duration = f"{minutes}m {seconds}s"
+            else:
+                duration = f"{seconds}s"
+        
+        # Build email
+        msg = MIMEMultipart('alternative')
+        
+        if success:
+            completed_files = [f for f in self.transfer_list if f['status'] == 'completed']
+            msg['Subject'] = f"✓ PyTivo Transfer Complete - {len(completed_files)} file(s)"
+            
+            # HTML body
+            html = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    h2 {{ color: #28a745; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                    th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+                    th {{ background-color: #28a745; color: white; }}
+                    tr:hover {{ background-color: #f5f5f5; }}
+                    .info {{ background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+                    .success {{ color: #28a745; font-weight: bold; }}
+                    .failed {{ color: #dc3545; font-weight: bold; }}
+                </style>
+            </head>
+            <body>
+                <h2>✓ PyTivo Transfer Completed Successfully</h2>
+                
+                <div class="info">
+                    <strong>TiVo:</strong> {self.tivo_host}<br>
+                    <strong>Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
+                    <strong>Duration:</strong> {duration}<br>
+                    <strong>Files Transferred:</strong> {len(completed_files)} of {len(self.transfer_list)}
+                </div>
+                
+                <h3>Transfer Details:</h3>
+                <table>
+                    <tr>
+                        <th>#</th>
+                        <th>Filename</th>
+                        <th>Status</th>
+                    </tr>
+            """
+            
+            for idx, item in enumerate(self.transfer_list, 1):
+                status_class = "success" if item['status'] == 'completed' else "failed"
+                status_text = "✓ Completed" if item['status'] == 'completed' else "✗ " + item['status']
+                html += f"""
+                    <tr>
+                        <td>{idx}</td>
+                        <td>{item['filename']}</td>
+                        <td class="{status_class}">{status_text}</td>
+                    </tr>
+                """
+            
+            html += """
+                </table>
+            </body>
+            </html>
+            """
+        else:
+            msg['Subject'] = f"✗ PyTivo Transfer Failed"
+            
+            # HTML body for failure
+            html = f"""
+            <html>
+            <head>
+                <style>
+                    body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                    h2 {{ color: #dc3545; }}
+                    .info {{ background-color: #f0f0f0; padding: 10px; border-radius: 5px; margin: 10px 0; }}
+                    .error {{ background-color: #f8d7da; color: #721c24; padding: 15px; border-radius: 5px; margin: 10px 0; }}
+                    table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+                    th, td {{ padding: 12px; text-align: left; border-bottom: 1px solid #ddd; }}
+                    th {{ background-color: #dc3545; color: white; }}
+                </style>
+            </head>
+            <body>
+                <h2>✗ PyTivo Transfer Failed</h2>
+                
+                <div class="info">
+                    <strong>TiVo:</strong> {self.tivo_host}<br>
+                    <strong>Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br>
+                    <strong>Files Found:</strong> {len(self.transfer_list)}
+                </div>
+                
+                <div class="error">
+                    <strong>Error:</strong> {error_message or "Transfer process failed"}
+                </div>
+            """
+            
+            if self.transfer_list:
+                html += """
+                <h3>Files That Were Queued:</h3>
+                <table>
+                    <tr>
+                        <th>#</th>
+                        <th>Filename</th>
+                        <th>Status</th>
+                    </tr>
+                """
+                
+                for idx, item in enumerate(self.transfer_list, 1):
+                    html += f"""
+                    <tr>
+                        <td>{idx}</td>
+                        <td>{item['filename']}</td>
+                        <td>{item['status']}</td>
+                    </tr>
+                    """
+                
+                html += "</table>"
+            
+            html += """
+            </body>
+            </html>
+            """
+        
+        msg['From'] = from_email
+        msg['To'] = to_email
+        msg.attach(MIMEText(html, 'html'))
+        
+        # Send email
+        try:
+            if smtp_user and smtp_pass:
+                server = smtplib.SMTP(smtp_server, smtp_port)
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+            else:
+                server = smtplib.SMTP(smtp_server, smtp_port)
+            
+            server.send_message(msg)
+            server.quit()
+            print(f"\n✓ Email notification sent to {to_email}")
+        except Exception as e:
+            print(f"\n✗ Failed to send email: {e}")
     
     def interactive_mode(self):
         """Interactive mode - manual control with commands."""
