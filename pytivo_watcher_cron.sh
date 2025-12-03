@@ -17,6 +17,20 @@ SEQUENCE="${SEQUENCE:-watcher}"
 LOG_FILE="${LOG_FILE:-/home/jtashiro/logs/pytivo-watcher-cron.log}"
 LOCK_FILE="/tmp/pytivo-watcher.lock"
 
+# Auto-detect SHARE_NAME from pyTivo.conf if not set
+if [ -z "$SHARE_NAME" ]; then
+    # Try to get first video share from pyTivo config
+    SHARE_NAME=$(python3 -u /usr/local/bin/pytivo_transfer.py --list-shares 2>/dev/null | grep -E '^\s+-\s+' | head -1 | sed 's/^\s*-\s*//')
+    
+    # Fall back to "Watcher" if detection fails
+    if [ -z "$SHARE_NAME" ]; then
+        SHARE_NAME="Watcher"
+    fi
+fi
+
+# Export SHARE_NAME so pytivo_transfer.py can use it
+export SHARE_NAME
+
 # Email Configuration (optional - for transfer notifications)
 # Set these in $HOME/.profile or uncomment here to enable email notifications:
 # export SMTP_SERVER="localhost"                       # SMTP server
@@ -66,6 +80,7 @@ if [ "$file_count" -eq 0 ]; then
 fi
 
 log "Found $file_count file(s)"
+log "Using pyTivo share: $SHARE_NAME"
 log "Starting transfer to TiVo ($TIVO_IP) using sequence: $SEQUENCE"
 log "========================================"
 

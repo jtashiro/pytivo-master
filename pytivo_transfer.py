@@ -64,6 +64,57 @@ class PyTivoAutomation:
         
         # Default to current directory if not found
         return 'tivo_navigation.txt'
+    
+    def _find_pytivo_config(self):
+        """Find pyTivo.conf in standard locations."""
+        search_paths = [
+            '/usr/local/etc/pytivo.conf',  # Primary system install (lowercase)
+            '/usr/local/etc/pyTivo.conf',  # Primary system install (capitalized)
+            '/etc/pytivo.conf',  # System config (lowercase)
+            '/etc/pyTivo.conf',  # System config (capitalized)
+            'pyTivo.conf',  # Current directory
+            os.path.join(os.path.dirname(__file__), 'pyTivo.conf'),  # Same dir as script
+            os.path.expanduser('~/.config/pytivo/pytivo.conf'),  # User config
+            os.path.expanduser('~/.pytivo/pytivo.conf'),  # User config alt
+        ]
+        
+        for path in search_paths:
+            if os.path.exists(path):
+                return path
+        
+        return None
+    
+    def get_pytivo_shares(self):
+        """
+        Read pyTivo.conf and extract share names.
+        
+        Returns:
+            List of share names (section names that have type=video)
+        """
+        config_path = self._find_pytivo_config()
+        if not config_path:
+            return []
+        
+        shares = []
+        try:
+            import configparser
+            config = configparser.ConfigParser()
+            config.read(config_path)
+            
+            for section in config.sections():
+                # Skip special sections
+                if section.lower() in ['server', 'togo'] or section.startswith('_tivo'):
+                    continue
+                
+                # Check if it's a video share
+                if config.has_option(section, 'type'):
+                    share_type = config.get(section, 'type').lower()
+                    if share_type == 'video':
+                        shares.append(section)
+        except Exception as e:
+            print(f"Warning: Could not read pyTivo config: {e}")
+        
+        return shares
         
     def load_navigation_config(self):
         """
@@ -111,10 +162,14 @@ class PyTivoAutomation:
                         else:
                             print(f"Warning: Invalid WAIT_FOR syntax in line: {line}")
                     elif line.upper().startswith('LOCATE_SHARE'):
-                        # Parse: LOCATE_SHARE "share name"
+                        # Parse: LOCATE_SHARE "share name" (supports ${VAR} or $VAR expansion)
                         match = re.search(r'LOCATE_SHARE\s+"([^"]+)"', line, re.IGNORECASE)
                         if match:
                             share_text = match.group(1)
+                            # Expand environment variables in share name
+                            # Supports both ${VAR} and $VAR syntax
+                            import string
+                            share_text = os.path.expandvars(share_text)
                             current_sequence.append(('LOCATE_SHARE', share_text))
                         else:
                             print(f"Warning: Invalid LOCATE_SHARE syntax in line: {line}")
@@ -1572,6 +1627,9 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # List video shares from pyTivo.conf
+  python pytivo_transfer.py --list-shares
+  
   # Interactive mode (manual control)
   python pytivo_transfer.py 192.168.1.185
   
@@ -1590,10 +1648,11 @@ Examples:
 
 Note: Automated mode is fragile and may need customization for your menu layout.
       Interactive mode is recommended for initial testing.
+      Set SHARE_NAME environment variable to specify which pyTivo share to use.
         """
     )
     
-    parser.add_argument("tivo_ip", help="TiVo IP address")
+    parser.add_argument("tivo_ip", nargs="?", help="TiVo IP address")
     parser.add_argument("sequence", nargs="?", help="Optional: sequence name to execute from config")
     parser.add_argument("--auto", action="store_true", 
                        help="Attempt automated transfer (vs interactive mode)")
@@ -1603,8 +1662,26 @@ Note: Automated mode is fragile and may need customization for your menu layout.
                        help="Folder path to navigate through")
     parser.add_argument("--test-email", action="store_true",
                        help="Send a test email with sample content and exit")
+    parser.add_argument("--list-shares", action="store_true",
+                       help="List video shares from pyTivo.conf and exit")
     
     args = parser.parse_args()
+    
+    # Handle list-shares mode (no banner or TiVo IP needed)
+    if args.list_shares:
+        automation = PyTivoAutomation("dummy")
+        shares = automation.get_pytivo_shares()
+        if shares:
+            print("Video shares from pyTivo.conf:")
+            for share in shares:
+                print(f"  - {share}")
+        else:
+            print("No video shares found in pyTivo.conf")
+        return 0
+    
+    # Require tivo_ip for all other modes
+    if not args.tivo_ip:
+        parser.error("tivo_ip is required (unless using --list-shares)")
     
     # Print banner FIRST before any other output
     print("=" * 60)

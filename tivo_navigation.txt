@@ -77,14 +77,16 @@ LEFT 0.5
 TIVO 0.5
 
 [watcher]
-# Navigate to Import, locate Watcher share, and transfer all items
+# Navigate to Import, locate share, transfer all items, then return to TiVo home
+# TIVO button after TRANSFER_ALL allows TiVo usage while transfers occur in background
+# Share name is read from $SHARE_NAME environment variable (defaults to "Watcher")
 TIVO 0.5
 SELECT 0.5
 LEFT 0.5
 BOTTOM 0.5
 RIGHT 0.5
-LOCATE_SHARE "Watcher"
+LOCATE_SHARE "$SHARE_NAME"
 TRANSFER_ALL
-DELETE_SOURCE_FILE
 TIVO 0.5
+DELETE_SOURCE_FILE
 
