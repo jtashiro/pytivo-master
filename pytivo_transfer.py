@@ -1351,6 +1351,128 @@ class PyTivoAutomation:
         except Exception as e:
             print(f"\n✗ Failed to send email: {e}")
     
+    def send_test_email(self):
+        """Send a test email with sample content to verify configuration."""
+        # Get email configuration
+        smtp_server = os.environ.get('SMTP_SERVER', 'localhost')
+        smtp_port = int(os.environ.get('SMTP_PORT', '25'))
+        smtp_user = os.environ.get('SMTP_USER')
+        smtp_pass = os.environ.get('SMTP_PASS')
+        from_email = os.environ.get('FROM_EMAIL', 'pytivo@localhost')
+        to_email = os.environ.get('TO_EMAIL')
+        
+        if not to_email:
+            print("\n✗ TO_EMAIL environment variable not set")
+            print("Set TO_EMAIL to enable email notifications")
+            return
+        
+        print(f"SMTP Server: {smtp_server}:{smtp_port}")
+        print(f"From: {from_email}")
+        print(f"To: {to_email}")
+        print(f"Auth: {'Yes' if smtp_user else 'No'}")
+        
+        # Create test transfer list
+        test_transfers = [
+            {'filename': 'Test_Video_1.mkv', 'status': 'completed'},
+            {'filename': 'Test_Video_2.mp4', 'status': 'completed'},
+            {'filename': 'Test_Video_3.avi', 'status': 'failed'}
+        ]
+        
+        # Build HTML email
+        msg = MIMEMultipart('alternative')
+        msg['Subject'] = '✓ PyTivo Test Email - 3 file(s)'
+        msg['From'] = from_email
+        msg['To'] = to_email
+        
+        # Calculate test duration
+        duration_seconds = 245  # 4 minutes 5 seconds
+        hours = duration_seconds // 3600
+        minutes = (duration_seconds % 3600) // 60
+        seconds = duration_seconds % 60
+        duration_str = f"{hours}h {minutes}m {seconds}s" if hours > 0 else f"{minutes}m {seconds}s"
+        
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; margin: 20px; }}
+                .header {{ background-color: #4CAF50; color: white; padding: 20px; text-align: center; }}
+                .content {{ padding: 20px; }}
+                .info {{ margin: 10px 0; }}
+                .info strong {{ display: inline-block; width: 120px; }}
+                table {{ border-collapse: collapse; width: 100%; margin-top: 20px; }}
+                th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+                th {{ background-color: #4CAF50; color: white; }}
+                tr:nth-child(even) {{ background-color: #f2f2f2; }}
+                .completed {{ color: green; }}
+                .failed {{ color: red; }}
+                .footer {{ margin-top: 20px; padding-top: 20px; border-top: 1px solid #ddd; color: #666; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>✓ PyTivo Test Email</h1>
+            </div>
+            <div class="content">
+                <div class="info"><strong>TiVo IP:</strong> {self.tivo_host}</div>
+                <div class="info"><strong>Date:</strong> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</div>
+                <div class="info"><strong>Duration:</strong> {duration_str}</div>
+                <div class="info"><strong>Status:</strong> <span style="color: green;">3 of 3 files transferred</span></div>
+                
+                <h2>Transferred Files</h2>
+                <table>
+                    <tr>
+                        <th>File</th>
+                        <th>Status</th>
+                    </tr>
+        """
+        
+        for transfer in test_transfers:
+            status_class = transfer['status']
+            status_text = '✓ Completed' if transfer['status'] == 'completed' else '✗ Failed'
+            html += f"""
+                    <tr>
+                        <td>{transfer['filename']}</td>
+                        <td class="{status_class}">{status_text}</td>
+                    </tr>
+            """
+        
+        html += """
+                </table>
+                <div class="footer">
+                    <p><strong>This is a test email from PyTivo Transfer Automation</strong></p>
+                    <p>This email confirms your SMTP configuration is working correctly.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        msg.attach(MIMEText(html, 'html'))
+        
+        # Send email
+        try:
+            print(f"\nConnecting to {smtp_server}:{smtp_port}...")
+            server = smtplib.SMTP(smtp_server, smtp_port)
+            server.set_debuglevel(0)
+            
+            if smtp_user and smtp_pass:
+                print("Starting TLS...")
+                server.starttls()
+                print("Authenticating...")
+                server.login(smtp_user, smtp_pass)
+            
+            print(f"Sending test email to {to_email}...")
+            server.send_message(msg)
+            server.quit()
+            
+            print(f"\n✓ Test email sent successfully to {to_email}")
+            print("\nCheck your inbox for the test email.")
+        except Exception as e:
+            print(f"\n✗ Failed to send test email: {e}")
+            import traceback
+            traceback.print_exc()
+    
     def interactive_mode(self):
         """Interactive mode - manual control with commands."""
         print("\n" + "=" * 60)
@@ -1462,6 +1584,9 @@ Examples:
   
   # Transfer video at position 3
   python pytivo_transfer.py 192.168.1.185 --auto --position 3
+  
+  # Send test email (verify SMTP configuration)
+  python pytivo_transfer.py 192.168.1.185 --test-email
 
 Note: Automated mode is fragile and may need customization for your menu layout.
       Interactive mode is recommended for initial testing.
@@ -1476,6 +1601,8 @@ Note: Automated mode is fragile and may need customization for your menu layout.
                        help="Video position in list (0 = first)")
     parser.add_argument("--folders", nargs="*",
                        help="Folder path to navigate through")
+    parser.add_argument("--test-email", action="store_true",
+                       help="Send a test email with sample content and exit")
     
     args = parser.parse_args()
     
@@ -1487,6 +1614,13 @@ Note: Automated mode is fragile and may need customization for your menu layout.
     sys.stdout.flush()
     
     automation = PyTivoAutomation(args.tivo_ip)
+    
+    # Handle test email mode (no TiVo connection needed)
+    if args.test_email:
+        print(f"TiVo: {args.tivo_ip}")
+        print("\nSending test email...")
+        automation.send_test_email()
+        return 0
     
     print(f"TiVo: {args.tivo_ip}")
     
