@@ -4,15 +4,20 @@
 # Add to crontab to run every 5 minutes:
 #   */5 * * * * /usr/local/bin/pytivo_watcher_cron.sh
 #
+# To set email config outside this script, create /usr/local/etc/pytivo_watcher.conf with:
+#   export SMTP_SERVER=hp.local
+#   export SMTP_PORT=25
+#   export FROM_EMAIL=no-reply@fiospace.com
+#   export TO_EMAIL=jtashiro@fiospace.com
+#
+# Or set in crontab:
+#   SMTP_SERVER=hp.local
+#   SMTP_PORT=25
+#   */5 * * * * /usr/local/bin/pytivo_watcher_cron.sh
 
-# Load environment variables from .profile and .bash_aliases (for SMTP_* variables)
-if [ -f "$HOME/.profile" ]; then
-    source "$HOME/.profile"
-fi
-
-# Also try .bashrc as fallback
-if [ -f "$HOME/.bashrc" ]; then
-    source "$HOME/.bashrc"
+# Load external configuration if it exists
+if [ -f "/usr/local/etc/pytivo_watcher.conf" ]; then
+    source "/usr/local/etc/pytivo_watcher.conf"
 fi
 
 # Configuration
@@ -44,26 +49,19 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
 }
 
-# Email Configuration (optional - for transfer notifications)
-# Set these in $HOME/.profile or $HOME/.bash_aliases with 'export' (or set -a)
-# Example in .bash_aliases:
-#   set -a
-#   SMTP_SERVER="smtp.gmail.com"
-#   SMTP_PORT="587"
-#   SMTP_USER="your.email@gmail.com"
-#   SMTP_PASS="your-app-password"
-#   FROM_EMAIL="your.email@gmail.com"
-#   TO_EMAIL="recipient@example.com"
-#   set +a
+# Email Configuration
+# NOTE: .profile/.bash_aliases are NOT reliably sourced in cron environments.
+# Set email configuration directly here:
 
-# Debug: Log what was loaded from environment
-log "Env after sourcing: SMTP_SERVER=${SMTP_SERVER:-unset} SMTP_PORT=${SMTP_PORT:-unset} FROM=${FROM_EMAIL:-unset} TO=${TO_EMAIL:-unset}"
+# SMTP Server Configuration
+: ${SMTP_SERVER:=hp.local}              # Your SMTP server hostname/IP
+: ${SMTP_PORT:=25}                      # SMTP port (25 for local relay, 587 for TLS)
+: ${SMTP_USER:=}                        # SMTP username (leave empty if no auth)
+: ${SMTP_PASS:=}                        # SMTP password (leave empty if no auth)
 
-# Set defaults only if not already set from environment:
-: ${TO_EMAIL:=jtashiro@fiospace.com}
-: ${FROM_EMAIL:=no-reply@fiospace.com}
-: ${SMTP_SERVER:=localhost}
-: ${SMTP_PORT:=25}
+# Email Addresses
+: ${FROM_EMAIL:=no-reply@fiospace.com}  # Sender email address
+: ${TO_EMAIL:=jtashiro@fiospace.com}    # Recipient email address
 
 # Ensure they are exported for pytivo_transfer.py
 export TO_EMAIL
@@ -73,7 +71,7 @@ export SMTP_PORT
 export SMTP_USER
 export SMTP_PASS
 
-log "Final Email Config: SMTP_SERVER=$SMTP_SERVER SMTP_PORT=$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
+log "Email Config: SMTP=$SMTP_SERVER:$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
 
 # Check for lock file (prevent concurrent runs)
 if [ -f "$LOCK_FILE" ]; then
