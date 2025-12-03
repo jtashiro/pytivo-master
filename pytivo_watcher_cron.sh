@@ -6,25 +6,14 @@
 #
 
 # Load environment variables from .profile and .bash_aliases (for SMTP_* variables)
-# Debug: Check SMTP_SERVER before sourcing
-# echo "DEBUG: SMTP_SERVER before sourcing: $SMTP_SERVER"
-
 if [ -f "$HOME/.profile" ]; then
     source "$HOME/.profile"
 fi
-
-# Don't source .bash_aliases separately if .profile already sources it
-# if [ -f "$HOME/.bash_aliases" ]; then
-#     source "$HOME/.bash_aliases"
-# fi
 
 # Also try .bashrc as fallback
 if [ -f "$HOME/.bashrc" ]; then
     source "$HOME/.bashrc"
 fi
-
-# Debug: Check SMTP_SERVER after sourcing
-# echo "DEBUG: SMTP_SERVER after sourcing: $SMTP_SERVER"
 
 # Configuration
 TIVO_IP="${TIVO_IP:-192.168.1.185}"
@@ -47,6 +36,14 @@ fi
 # Export SHARE_NAME so pytivo_transfer.py can use it
 export SHARE_NAME
 
+# Ensure log directory exists
+mkdir -p "$(dirname "$LOG_FILE")"
+
+# Log function
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
+}
+
 # Email Configuration (optional - for transfer notifications)
 # Set these in $HOME/.profile or $HOME/.bash_aliases with 'export' (or set -a)
 # Example in .bash_aliases:
@@ -58,7 +55,10 @@ export SHARE_NAME
 #   FROM_EMAIL="your.email@gmail.com"
 #   TO_EMAIL="recipient@example.com"
 #   set +a
-#
+
+# Debug: Log what was loaded from environment
+log "Env after sourcing: SMTP_SERVER=${SMTP_SERVER:-unset} SMTP_PORT=${SMTP_PORT:-unset} FROM=${FROM_EMAIL:-unset} TO=${TO_EMAIL:-unset}"
+
 # Set defaults only if not already set from environment:
 : ${TO_EMAIL:=jtashiro@fiospace.com}
 : ${FROM_EMAIL:=no-reply@fiospace.com}
@@ -73,17 +73,7 @@ export SMTP_PORT
 export SMTP_USER
 export SMTP_PASS
 
-
-# Ensure log directory exists
-mkdir -p "$(dirname "$LOG_FILE")"
-
-# Log function
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG_FILE"
-}
-
-# Debug: Log email configuration
-log "Email Config: SMTP_SERVER=$SMTP_SERVER SMTP_PORT=$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
+log "Final Email Config: SMTP_SERVER=$SMTP_SERVER SMTP_PORT=$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
 
 # Check for lock file (prevent concurrent runs)
 if [ -f "$LOCK_FILE" ]; then
