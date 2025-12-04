@@ -115,6 +115,45 @@ class PyTivoAutomation:
             print(f"Warning: Could not read pyTivo config: {e}")
         
         return shares
+    
+    def get_share_by_path(self, path: str):
+        """
+        Find share name by matching its path in pyTivo.conf.
+        
+        Args:
+            path: Directory path to match against share paths
+        
+        Returns:
+            Share name if found, None otherwise
+        """
+        config_path = self._find_pytivo_config()
+        if not config_path:
+            return None
+        
+        # Normalize the search path
+        search_path = os.path.abspath(os.path.expanduser(path)).rstrip('/')
+        
+        try:
+            import configparser
+            config = configparser.ConfigParser()
+            config.read(config_path)
+            
+            for section in config.sections():
+                # Skip special sections
+                if section.lower() in ['server', 'togo'] or section.startswith('_tivo'):
+                    continue
+                
+                # Check if it's a video share with matching path
+                if config.has_option(section, 'type') and config.has_option(section, 'path'):
+                    share_type = config.get(section, 'type').lower()
+                    if share_type == 'video':
+                        share_path = os.path.abspath(os.path.expanduser(config.get(section, 'path'))).rstrip('/')
+                        if share_path == search_path:
+                            return section
+        except Exception as e:
+            print(f"Warning: Could not read pyTivo config: {e}")
+        
+        return None
         
     def load_navigation_config(self):
         """
@@ -1667,6 +1706,9 @@ Examples:
   # List video shares from pyTivo.conf
   python pytivo_transfer.py --list-shares
   
+  # Find share name for a directory path
+  python pytivo_transfer.py --share-for-path /mnt/cloud/pytivo-watcher-mediaroom
+  
   # Interactive mode (manual control)
   python pytivo_transfer.py 192.168.1.185
   
@@ -1701,8 +1743,21 @@ Note: Automated mode is fragile and may need customization for your menu layout.
                        help="Send a test email with sample content and exit")
     parser.add_argument("--list-shares", action="store_true",
                        help="List video shares from pyTivo.conf and exit")
+    parser.add_argument("--share-for-path", metavar="PATH",
+                       help="Find share name for given directory path and exit")
     
     args = parser.parse_args()
+    
+    # Handle share-for-path mode (no banner or TiVo IP needed)
+    if args.share_for_path:
+        automation = PyTivoAutomation("dummy")
+        share_name = automation.get_share_by_path(args.share_for_path)
+        if share_name:
+            print(share_name)
+            return 0
+        else:
+            print(f"No share found for path: {args.share_for_path}", file=sys.stderr)
+            return 1
     
     # Handle list-shares mode (no banner or TiVo IP needed)
     if args.list_shares:

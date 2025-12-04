@@ -27,10 +27,10 @@ SEQUENCE="${SEQUENCE:-watcher}"
 LOG_FILE="${LOG_FILE:-/home/jtashiro/logs/pytivo-watcher-cron.log}"
 LOCK_FILE="/tmp/pytivo-watcher.lock"
 
-# Auto-detect SHARE_NAME from pyTivo.conf if not set
+# Auto-detect SHARE_NAME from pyTivo.conf by matching WATCH_DIR path
 if [ -z "$SHARE_NAME" ]; then
-    # Try to get first video share from pyTivo config
-    SHARE_NAME=$(python3 -u /usr/local/bin/pytivo_transfer.py --list-shares 2>/dev/null | grep -E '^\s+-\s+' | head -1 | sed 's/^\s*-\s*//')
+    # Try to find share name by matching the watch directory path
+    SHARE_NAME=$(python3 /usr/local/bin/pytivo_transfer.py --share-for-path "$WATCH_DIR" 2>/dev/null)
     
     # Fall back to "Watcher" if detection fails
     if [ -z "$SHARE_NAME" ]; then
