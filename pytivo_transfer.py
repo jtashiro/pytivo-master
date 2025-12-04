@@ -393,8 +393,9 @@ class PyTivoAutomation:
         
         print(f"Locating share containing: '{share_name}'")
         
-        # Track seen shares to detect when we've cycled back to the start
-        seen_shares = []
+        # Track previous share to detect when we've reached the end of the list
+        # (DOWN on last item re-selects the same item)
+        previous_share = None
         
         for attempt in range(max_attempts):
             # Get current log position
@@ -432,9 +433,9 @@ class PyTivoAutomation:
                                 current_share = container_decoded
                                 print(f"    Log shows container: '{container_decoded}'")
                                 
-                                # Check if we've seen this share before (cycled back to start)
-                                if current_share in seen_shares:
-                                    print(f"    ✗ Already checked '{current_share}' - cycled through all shares")
+                                # Check if this is the same as previous share (at end of list)
+                                if previous_share and current_share == previous_share:
+                                    print(f"    ✗ Same share as previous ('{current_share}') - reached end of list")
                                     print(f"✗ Share '{share_name}' not found in any available shares")
                                     # Back out before returning
                                     self.remote.press(TiVoButton.LEFT, delay=1.0)
@@ -463,9 +464,8 @@ class PyTivoAutomation:
                     print(f"Error reading log: {e}")
                     break
             
-            # Track this share as seen
-            if current_share:
-                seen_shares.append(current_share)
+            # Save current share as previous for next iteration
+            previous_share = current_share
             
             # Wrong share, back out with LEFT and try next
             print(f"    Not the right share, pressing LEFT to back out...")
