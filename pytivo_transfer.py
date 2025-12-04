@@ -230,7 +230,8 @@ class PyTivoAutomation:
                 if current_command and current_sequence:
                     sequences[current_command] = current_sequence
             
-            print(f"Loaded {len(sequences)} navigation sequences from {self.nav_config}")
+            # Don't print during initialization - only in interactive/verbose mode
+            # print(f"Loaded {len(sequences)} navigation sequences from {self.nav_config}")
             return sequences
             
         except Exception as e:
@@ -418,9 +419,17 @@ class PyTivoAutomation:
                     for line in new_lines:
                         # Look for: Container=Share%20Name or Container="Share Name"
                         if 'QueryContainer' in line and 'Container=' in line:
+                            # Debug: Extract and display the actual container name from the log
+                            container_match = re.search(r'Container=([^&\s]+)', line)
+                            if container_match:
+                                container_encoded = container_match.group(1)
+                                container_decoded = urllib.parse.unquote(container_encoded)
+                                print(f"    Log shows container: '{container_decoded}'")
+                            
                             # Extract container name from URL-encoded or regular format
                             if share_name in line or share_name.replace(' ', '%20') in line:
                                 found = True
+                                print(f"    ✓ Match! Looking for file count...")
                         
                         # Look for: Found X files, total=Y
                         if found and 'Found' in line and 'files' in line:
