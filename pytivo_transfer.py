@@ -817,7 +817,6 @@ class PyTivoAutomation:
         
         sequence = self.nav_sequences[command_name]
         print(f"Executing sequence: {command_name}")
-        print(f"DEBUG: Sequence has {len(sequence)} commands")
         
         # Track file count from LOCATE_SHARE for use with TRANSFER_ALL
         file_count = None
@@ -854,28 +853,20 @@ class PyTivoAutomation:
                 
                 # Monitor all transfers if we have a count
                 if transferred_count > 0:
-                    print(f"\nDEBUG: About to monitor {transferred_count} transfers")
                     try:
                         completed_files = self.monitor_all_transfers(transferred_count, queueing_start_pos)
                         self.transfer_end_time = time.time()
                         
-                        print(f"\nDEBUG: Monitoring complete, calling send_email_notification(success=True)")
-                        print(f"DEBUG: Completed files: {completed_files}")
-                        
                         # Send success email
                         self.send_email_notification(success=True)
-                        
-                        print(f"DEBUG: send_email_notification returned")
                     except Exception as e:
                         self.transfer_end_time = time.time()
-                        print(f"\nDEBUG: Exception in monitoring: {e}")
-                        print(f"DEBUG: Calling send_email_notification(success=False)")
                         
                         # Send failure email
                         self.send_email_notification(success=False, error_message=str(e))
                         raise
                 else:
-                    print(f"\nDEBUG: transferred_count is {transferred_count}, skipping monitoring")
+                    pass
                     
                     # Delete files if DELETE_SOURCE_FILE follows TRANSFER_ALL
                     if should_delete and completed_files:
@@ -1324,10 +1315,6 @@ class PyTivoAutomation:
             success: True if transfers completed, False if failed
             error_message: Optional error message for failures
         """
-        print("\n" + "=" * 60)
-        print("EMAIL NOTIFICATION DEBUG")
-        print("=" * 60)
-        
         # Get email configuration from environment variables
         smtp_server = os.environ.get('SMTP_SERVER', 'localhost')
         smtp_port = int(os.environ.get('SMTP_PORT', '25'))
@@ -1336,22 +1323,8 @@ class PyTivoAutomation:
         from_email = os.environ.get('FROM_EMAIL', 'pytivo@localhost')
         to_email = os.environ.get('TO_EMAIL')
         
-        print(f"SMTP Server: {smtp_server}:{smtp_port}")
-        print(f"From: {from_email}")
-        print(f"To: {to_email}")
-        print(f"Auth: {'Yes' if smtp_user else 'No'}")
-        print(f"Success: {success}")
-        print(f"Error Message: {error_message}")
-        print(f"Transfer Start Time: {self.transfer_start_time}")
-        print(f"Transfer End Time: {self.transfer_end_time}")
-        print(f"Transfer List Length: {len(self.transfer_list)}")
-        
         if not to_email:
-            print("✗ TO_EMAIL not set, skipping email notification")
-            print("=" * 60)
             return
-        
-        print("✓ TO_EMAIL is set, proceeding with email...")
         
         # Calculate duration
         duration = ""

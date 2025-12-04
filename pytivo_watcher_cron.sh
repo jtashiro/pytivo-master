@@ -71,8 +71,6 @@ export SMTP_PORT
 export SMTP_USER
 export SMTP_PASS
 
-log "Email Config: SMTP=$SMTP_SERVER:$SMTP_PORT FROM=$FROM_EMAIL TO=$TO_EMAIL"
-
 # Check for lock file (prevent concurrent runs)
 if [ -f "$LOCK_FILE" ]; then
     LOCK_PID=$(cat "$LOCK_FILE")
