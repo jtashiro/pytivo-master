@@ -393,6 +393,9 @@ class PyTivoAutomation:
         
         print(f"Locating share containing: '{share_name}'")
         
+        # Track seen shares to detect when we've cycled back to the start
+        seen_shares = []
+        
         for attempt in range(max_attempts):
             # Get current log position
             with open(log_path, 'r') as f:
@@ -409,6 +412,7 @@ class PyTivoAutomation:
             # Check log for Container query with our share name and file count
             found = False
             file_count = None
+            current_share = None
             timeout = time.time() + 3  # 3 second timeout per attempt
             
             while time.time() < timeout:
@@ -425,7 +429,16 @@ class PyTivoAutomation:
                             if container_match:
                                 container_encoded = container_match.group(1)
                                 container_decoded = urllib.parse.unquote(container_encoded)
+                                current_share = container_decoded
                                 print(f"    Log shows container: '{container_decoded}'")
+                                
+                                # Check if we've seen this share before (cycled back to start)
+                                if current_share in seen_shares:
+                                    print(f"    ✗ Already checked '{current_share}' - cycled through all shares")
+                                    print(f"✗ Share '{share_name}' not found in any available shares")
+                                    # Back out before returning
+                                    self.remote.press(TiVoButton.LEFT, delay=1.0)
+                                    return (False, None)
                             
                             # Extract container name from URL-encoded or regular format
                             if share_name in line or share_name.replace(' ', '%20') in line:
@@ -449,6 +462,10 @@ class PyTivoAutomation:
                 except Exception as e:
                     print(f"Error reading log: {e}")
                     break
+            
+            # Track this share as seen
+            if current_share:
+                seen_shares.append(current_share)
             
             # Wrong share, back out with LEFT and try next
             print(f"    Not the right share, pressing LEFT to back out...")
